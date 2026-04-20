@@ -41,56 +41,53 @@ const steps = [
 
 export function SolutionSection() {
   return (
-    <section className="py-20 sm:py-28 bg-white px-4">
-      <div className="max-w-6xl mx-auto">
+    <section className="py-20 md:py-28 bg-white px-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <FadeIn className="text-center mb-16">
-          <span className="text-indigo-600 font-semibold text-sm uppercase tracking-widest">Решение</span>
-          <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+          <span className="text-xs font-semibold uppercase tracking-widest text-powder">Решение</span>
+          <h2 className="mt-3 text-3xl md:text-4xl font-semibold text-text-dark tracking-tight">
             Три шага до подписанного договора
           </h2>
-          <p className="mt-4 text-gray-500 text-lg max-w-2xl mx-auto">
+          <p className="mt-4 text-base text-muted leading-relaxed max-w-2xl mx-auto">
             Никаких флешек, нотариусов и NCALayer. Работает с любого телефона.
           </p>
         </FadeIn>
 
-        <div className="grid md:grid-cols-3 gap-8 relative">
-          {/* Connector line for desktop */}
-          <div className="hidden md:block absolute top-12 left-1/6 right-1/6 h-px bg-gradient-to-r from-indigo-200 via-indigo-300 to-indigo-200 z-0" />
-
+        <div className="grid md:grid-cols-3 gap-8">
           {steps.map((step, i) => (
             <FadeIn key={step.number} delay={i * 0.15} className="relative z-10">
               <div className="flex flex-col items-center text-center">
                 <div className="relative mb-6">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+                  <div className="w-20 h-20 bg-sapphire rounded-2xl flex items-center justify-center text-white shadow-lg shadow-sapphire/20">
                     {step.icon}
                   </div>
-                  <span className="absolute -top-2 -right-2 w-7 h-7 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold flex items-center justify-center border-2 border-white">
+                  <span className="absolute -top-2 -right-2 w-7 h-7 bg-ice text-sapphire rounded-full text-xs font-bold flex items-center justify-center border-2 border-white shadow-sm">
                     {step.number}
                   </span>
                 </div>
-                <h3 className="font-bold text-gray-900 text-lg mb-2">{step.title}</h3>
+                <h3 className="font-semibold text-text-dark text-lg mb-2">{step.title}</h3>
                 {step.badge && (
-                  <span className="mb-2 inline-block bg-indigo-50 text-indigo-600 text-xs font-semibold px-3 py-1 rounded-full">
+                  <span className="mb-2 inline-block bg-ice text-sapphire text-xs font-semibold px-3 py-1 rounded-full">
                     {step.badge}
                   </span>
                 )}
-                <p className="text-gray-500 text-sm leading-relaxed">{step.description}</p>
+                <p className="text-muted text-sm leading-relaxed">{step.description}</p>
               </div>
             </FadeIn>
           ))}
         </div>
 
-        <FadeIn delay={0.5} className="mt-14 bg-gradient-to-r from-indigo-50 to-violet-50 rounded-2xl p-6 sm:p-8 border border-indigo-100">
+        <FadeIn delay={0.5} className="mt-14 bg-ice rounded-2xl p-6 sm:p-8 border border-powder/30">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-shrink-0 w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center text-white">
+            <div className="flex-shrink-0 w-12 h-12 bg-sapphire rounded-xl flex items-center justify-center text-white">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
             <div>
-              <p className="font-bold text-gray-900">Юридически значимо по законодательству РК</p>
-              <p className="text-gray-500 text-sm mt-1">
+              <p className="font-semibold text-text-dark">Юридически значимо по законодательству РК</p>
+              <p className="text-muted text-sm mt-1 leading-relaxed">
                 ПЭП (простая электронная подпись) легализована в Казахстане с июля 2024 г. Статья 152 ГК РК.
                 Подпись через SMS OTP или eGov QR имеет полную юридическую силу.
               </p>

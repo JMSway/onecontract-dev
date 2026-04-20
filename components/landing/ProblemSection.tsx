@@ -19,20 +19,20 @@ const problems = [
   {
     icon: '📋',
     title: 'Бумажная волокита',
-    description: 'Распечатать, подписать, отсканировать, хранить. Каждый новый ученик — 20 минут административной работы.',
+    description: 'Распечатать, подписать, отсканировать, хранить. Каждый новый ученик — 20 минут работы.',
   },
 ]
 
 export function ProblemSection() {
   return (
-    <section className="py-20 sm:py-28 bg-gray-50 px-4">
-      <div className="max-w-6xl mx-auto">
+    <section className="py-20 md:py-28 bg-ice px-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <FadeIn className="text-center mb-14">
-          <span className="text-indigo-600 font-semibold text-sm uppercase tracking-widest">Проблема</span>
-          <h2 className="mt-3 text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+          <span className="text-xs font-semibold uppercase tracking-widest text-powder">Проблема</span>
+          <h2 className="mt-3 text-3xl md:text-4xl font-semibold text-text-dark tracking-tight">
             Школы теряют деньги без договоров
           </h2>
-          <p className="mt-4 text-gray-500 text-lg max-w-2xl mx-auto">
+          <p className="mt-4 text-base text-muted leading-relaxed max-w-2xl mx-auto">
             1000+ языковых школ в Казахстане работают на доверии. Это работает до первого конфликта.
           </p>
         </FadeIn>
@@ -40,21 +40,21 @@ export function ProblemSection() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {problems.map((p, i) => (
             <FadeIn key={p.title} delay={i * 0.1}>
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 h-full">
+              <div className="bg-white border border-ice rounded-2xl p-6 shadow-sm h-full">
                 <div className="text-4xl mb-4">{p.icon}</div>
-                <h3 className="font-bold text-gray-900 text-base mb-2">{p.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{p.description}</p>
+                <h3 className="font-semibold text-text-dark text-base mb-2">{p.title}</h3>
+                <p className="text-muted text-sm leading-relaxed">{p.description}</p>
               </div>
             </FadeIn>
           ))}
         </div>
 
         <FadeIn delay={0.4} className="mt-12 text-center">
-          <div className="inline-flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-6 py-4">
+          <div className="inline-flex items-center gap-3 bg-white border border-ice rounded-2xl px-6 py-4 shadow-sm">
             <span className="text-2xl">📉</span>
-            <p className="text-red-700 text-sm font-medium">
+            <p className="text-danger text-sm font-medium">
               По нашим оценкам, средняя школа теряет{' '}
-              <span className="font-extrabold">150 000–300 000 ₸ в год</span>{' '}
+              <span className="font-bold">150 000–300 000 ₸ в год</span>{' '}
               из-за отсутствия договоров
             </p>
           </div>
