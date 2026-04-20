@@ -1,96 +1,103 @@
 import { FadeIn } from '@/components/ui/FadeIn'
+import { Upload, Send, PenLine, ArrowRight } from 'lucide-react'
 
 const steps = [
   {
     number: '01',
-    icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-      </svg>
-    ),
-    title: 'Загрузите шаблон',
-    description: 'Загрузите свой Word или PDF договор. AI автоматически распознаёт все переменные поля: ФИО, ИИН, суммы, даты.',
-    badge: 'AI-powered',
+    Icon: Upload,
+    title: 'Загрузите свой договор',
+    description: 'Загрузите Word или PDF — AI сам найдёт все поля для заполнения: ФИО, ИИН, даты, суммы, название курса.',
+    tag: 'AI-powered',
   },
   {
     number: '02',
-    icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-      </svg>
-    ),
-    title: 'Заполните данные ученика',
-    description: 'Менеджер вводит данные в простую форму. Система генерирует чистый PDF договор за секунду.',
-    badge: null,
+    Icon: Send,
+    title: 'Менеджер отправляет ученику',
+    description: 'Заполните данные ученика в форме. Выберите канал — SMS или Email. Одна кнопка — и договор уже у клиента.',
+    tag: 'SMS или Email',
   },
   {
     number: '03',
-    icon: (
-      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-      </svg>
-    ),
-    title: 'Ученик подписывает по SMS',
-    description: 'Клиент получает ссылку по SMS. Открывает на телефоне, просматривает PDF, вводит код — договор подписан.',
-    badge: 'SMS или eGov QR',
+    Icon: PenLine,
+    title: 'Ученик подписывает с телефона',
+    description: 'Клиент открывает ссылку, читает договор и подписывает за 30 секунд — SMS-кодом или через eGov QR.',
+    tag: '30 секунд',
   },
 ]
 
 export function SolutionSection() {
   return (
-    <section className="py-20 md:py-28 bg-white px-4">
+    <section className="py-20 md:py-28 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <FadeIn className="text-center mb-16">
-          <span className="text-xs font-semibold uppercase tracking-widest text-powder">Решение</span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-semibold text-text-dark tracking-tight">
-            Три шага до подписанного договора
+          <span className="text-xs font-semibold uppercase tracking-widest text-sapphire">Решение</span>
+          <h2 className="mt-3 text-3xl md:text-4xl font-bold text-text-dark tracking-tight">
+            OneContract решает это за 3 шага
           </h2>
-          <p className="mt-4 text-base text-muted leading-relaxed max-w-2xl mx-auto">
-            Никаких флешек, нотариусов и NCALayer. Работает с любого телефона.
+          <p className="mt-4 text-base text-muted leading-relaxed max-w-xl mx-auto">
+            Никакого NCALayer. Никаких флешек. Работает с любого телефона.
           </p>
         </FadeIn>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {steps.map((step, i) => (
-            <FadeIn key={step.number} delay={i * 0.15} className="relative z-10">
-              <div className="flex flex-col items-center text-center">
-                <div className="relative mb-6">
-                  <div className="w-20 h-20 bg-sapphire rounded-2xl flex items-center justify-center text-white shadow-lg shadow-sapphire/20">
-                    {step.icon}
+        {/* Horizontal step flow */}
+        <div className="relative">
+          {/* Connector line — desktop only */}
+          <div className="hidden md:block absolute top-10 left-[16.666%] right-[16.666%] h-px z-0">
+            <div className="h-full bg-gradient-to-r from-ice via-powder/40 to-ice" />
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 md:gap-6 relative z-10">
+            {steps.map((step, i) => (
+              <FadeIn key={step.number} delay={i * 0.15}>
+                <div className="flex flex-col items-center text-center">
+                  {/* Step circle */}
+                  <div className="relative mb-6">
+                    <div className="w-20 h-20 bg-sapphire rounded-2xl flex items-center justify-center shadow-lg shadow-sapphire/20">
+                      <step.Icon size={32} strokeWidth={1.5} className="text-white" />
+                    </div>
+                    <span className="absolute -top-2 -left-2 w-6 h-6 bg-navy text-white text-[11px] font-bold rounded-full flex items-center justify-center border border-powder/20">
+                      {step.number.replace('0', '')}
+                    </span>
                   </div>
-                  <span className="absolute -top-2 -right-2 w-7 h-7 bg-ice text-sapphire rounded-full text-xs font-bold flex items-center justify-center border-2 border-white shadow-sm">
-                    {step.number}
+
+                  {/* Tag */}
+                  <span className="inline-block bg-ice text-sapphire text-xs font-semibold px-3 py-1 rounded-full mb-3 border border-powder/30">
+                    {step.tag}
                   </span>
+
+                  {/* Title */}
+                  <h3 className="font-semibold text-text-dark text-lg mb-3 leading-snug">
+                    {step.title}
+                  </h3>
+
+                  {/* Description */}
+                  <p className="text-muted text-sm leading-relaxed">{step.description}</p>
                 </div>
-                <h3 className="font-semibold text-text-dark text-lg mb-2">{step.title}</h3>
-                {step.badge && (
-                  <span className="mb-2 inline-block bg-ice text-sapphire text-xs font-semibold px-3 py-1 rounded-full">
-                    {step.badge}
-                  </span>
-                )}
-                <p className="text-muted text-sm leading-relaxed">{step.description}</p>
-              </div>
-            </FadeIn>
-          ))}
+              </FadeIn>
+            ))}
+          </div>
+
+          {/* Mobile arrows between steps */}
+          <div className="md:hidden flex justify-center my-2">
+            <ArrowRight size={20} strokeWidth={1.5} className="text-powder rotate-90" />
+          </div>
         </div>
 
-        <FadeIn delay={0.5} className="mt-14 bg-ice rounded-2xl p-6 sm:p-8 border border-powder/30">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex-shrink-0 w-12 h-12 bg-sapphire rounded-xl flex items-center justify-center text-white">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <div>
-              <p className="font-semibold text-text-dark">Юридически значимо по законодательству РК</p>
-              <p className="text-muted text-sm mt-1 leading-relaxed">
-                ПЭП (простая электронная подпись) легализована в Казахстане с июля 2024 г. Статья 152 ГК РК.
-                Подпись через SMS OTP или eGov QR имеет полную юридическую силу.
-              </p>
+        {/* Result block */}
+        <FadeIn delay={0.5} className="mt-14">
+          <div className="bg-ice border border-powder/30 rounded-2xl p-6 sm:p-8">
+            <div className="grid sm:grid-cols-3 gap-6 divide-y sm:divide-y-0 sm:divide-x divide-powder/20">
+              {[
+                { value: '30 сек', label: 'время подписания', sub: 'с момента открытия ссылки' },
+                { value: '0 ₸', label: 'нотариус', sub: 'не нужен по закону РК' },
+                { value: '100%', label: 'юридическая сила', sub: 'ст. 152 ГК РК' },
+              ].map((stat) => (
+                <div key={stat.value} className="text-center pt-6 sm:pt-0 first:pt-0 sm:px-6">
+                  <p className="text-3xl font-bold text-sapphire">{stat.value}</p>
+                  <p className="text-sm font-semibold text-text-dark mt-1">{stat.label}</p>
+                  <p className="text-xs text-muted mt-0.5">{stat.sub}</p>
+                </div>
+              ))}
             </div>
           </div>
         </FadeIn>

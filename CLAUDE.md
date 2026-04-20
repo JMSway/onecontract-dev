@@ -199,6 +199,14 @@ colors: {
 - Mobile-first always (design for 375px first)
 - Border radius: rounded-xl (buttons/inputs), rounded-2xl (cards), rounded-full (badges/avatars)
 
+## Icons — lucide-react ONLY
+- Package: `lucide-react` (installed)
+- Import: `import { Shield, Clock, FileText, Send, Check, ... } from 'lucide-react'`
+- NEVER draw SVG icons manually — always use lucide-react
+- Size: `size={24}` inline, `size={32}` cards, `size={48}` hero features
+- Color: `className="text-sapphire"` on light bg, `"text-powder"` on dark bg
+- Style: always `strokeWidth={1.5}` for premium thin look
+
 ## Code style
 - TypeScript strict mode
 - Functional components with hooks

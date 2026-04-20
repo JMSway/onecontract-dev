@@ -1,120 +1,139 @@
 import Link from 'next/link'
 import { FadeIn } from '@/components/ui/FadeIn'
+import { Check, Zap, Building2 } from 'lucide-react'
 
 const plans = [
   {
-    name: 'Стартовый',
+    id: 'start',
+    Icon: Zap,
+    name: 'Старт',
     price: '0',
-    period: 'навсегда',
-    description: 'Для тех, кто только начинает',
+    period: '',
+    priceLabel: 'Бесплатно',
+    description: 'Попробуйте без риска',
     highlighted: false,
     badge: null,
     features: [
-      '5 договоров в месяц',
-      '1 шаблон',
+      'До 10 договоров в месяц',
+      '1 пользователь',
+      '1 шаблон договора',
       'SMS OTP подписание',
-      'Хранение 3 месяца',
+      'Хранение договоров 3 мес.',
       'Email поддержка',
     ],
     cta: 'Начать бесплатно',
-    ctaStyle: 'border border-powder text-text-dark hover:bg-ice',
-    href: '/auth/register',
+    ctaHref: '/auth/register',
   },
   {
+    id: 'school',
+    Icon: Building2,
     name: 'Школа',
-    price: '9 900',
-    period: 'в месяц',
-    description: 'Для активно работающих школ',
+    price: '15 000',
+    period: '₸/мес',
+    priceLabel: null,
+    description: 'Для работающей школы',
     highlighted: true,
     badge: 'Популярный',
     features: [
-      'До 100 договоров в месяц',
-      'До 10 шаблонов',
-      'SMS OTP + eGov QR',
-      'Хранение 3 года',
-      'AI-извлечение полей',
-      'Роли: владелец + менеджеры',
-      'Приоритетная поддержка',
-    ],
-    cta: 'Попробовать 14 дней бесплатно',
-    ctaStyle: 'bg-sapphire hover:bg-blue-700 text-white shadow-lg shadow-sapphire/20',
-    href: '/auth/register?plan=school',
-  },
-  {
-    name: 'Сеть',
-    price: '24 900',
-    period: 'в месяц',
-    description: 'Для сети учебных центров',
-    highlighted: false,
-    badge: null,
-    features: [
-      'Неограниченные договоры',
+      'Безлимит договоров',
+      'До 5 менеджеров',
       'Неограниченные шаблоны',
       'SMS OTP + eGov QR',
-      'Хранение 10 лет',
       'AI-извлечение полей',
-      'Несколько филиалов',
-      'API-интеграция',
-      'Персональный менеджер',
+      'Хранение 5 лет',
+      'Уведомления по SMS/Email',
+      'Приоритетная поддержка',
     ],
-    cta: 'Связаться с нами',
-    ctaStyle: 'border border-powder text-text-dark hover:bg-ice',
-    href: 'mailto:sales@onecontract.kz',
+    cta: 'Подключить',
+    ctaHref: '/auth/register?plan=school',
   },
 ]
 
 export function PricingSection() {
   return (
-    <section id="pricing" className="py-20 md:py-28 bg-ice px-4">
+    <section id="pricing" className="py-20 md:py-28 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <FadeIn className="text-center mb-14">
-          <span className="text-xs font-semibold uppercase tracking-widest text-powder">Тарифы</span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-semibold text-text-dark tracking-tight">
+          <span className="text-xs font-semibold uppercase tracking-widest text-sapphire">Тарифы</span>
+          <h2 className="mt-3 text-3xl md:text-4xl font-bold text-text-dark tracking-tight">
             Прозрачные цены
           </h2>
-          <p className="mt-4 text-base text-muted leading-relaxed max-w-xl mx-auto">
-            Начните бесплатно. Платите только когда вырастете.
+          <p className="mt-4 text-base text-muted leading-relaxed max-w-md mx-auto">
+            Начните бесплатно. Переходите на платный план когда будете готовы.
           </p>
         </FadeIn>
 
-        <div className="grid md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {plans.map((plan, i) => (
-            <FadeIn key={plan.name} delay={i * 0.1}>
-              <div className={`relative bg-white rounded-2xl border-2 p-6 sm:p-8 flex flex-col h-full ${
-                plan.highlighted ? 'border-sapphire ring-2 ring-sapphire/20' : 'border-ice'
+            <FadeIn key={plan.id} delay={i * 0.12}>
+              <div className={`relative rounded-2xl p-6 sm:p-8 flex flex-col h-full ${
+                plan.highlighted
+                  ? 'bg-navy border-2 border-sapphire/40 ring-4 ring-sapphire/10'
+                  : 'bg-white border-2 border-ice'
               }`}>
                 {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                     <span className="bg-sapphire text-white text-xs font-bold px-4 py-1 rounded-full">
                       {plan.badge}
                     </span>
                   </div>
                 )}
 
+                {/* Plan header */}
                 <div className="mb-6">
-                  <h3 className="font-semibold text-text-dark text-lg">{plan.name}</h3>
-                  <p className="text-muted text-sm mt-1">{plan.description}</p>
-                  <div className="mt-4 flex items-end gap-1">
-                    <span className="text-4xl font-bold text-text-dark">{plan.price}</span>
-                    {plan.price !== '0' && <span className="text-muted text-sm mb-1">₸</span>}
-                    <span className="text-muted text-sm mb-1 ml-1">{plan.period}</span>
+                  <div className={`inline-flex items-center gap-2 mb-3 ${plan.highlighted ? 'text-powder' : 'text-sapphire'}`}>
+                    <plan.Icon size={20} strokeWidth={1.5} />
+                    <span className={`text-sm font-semibold uppercase tracking-wide ${plan.highlighted ? 'text-powder' : 'text-sapphire'}`}>
+                      {plan.name}
+                    </span>
                   </div>
+
+                  {plan.priceLabel ? (
+                    <div className="flex items-end gap-2">
+                      <span className={`text-4xl font-bold ${plan.highlighted ? 'text-white' : 'text-text-dark'}`}>
+                        {plan.priceLabel}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-end gap-1">
+                      <span className={`text-4xl font-bold ${plan.highlighted ? 'text-white' : 'text-text-dark'}`}>
+                        {plan.price}
+                      </span>
+                      <span className={`text-sm mb-1.5 ${plan.highlighted ? 'text-muted' : 'text-muted'}`}>
+                        {plan.period}
+                      </span>
+                    </div>
+                  )}
+
+                  <p className={`text-sm mt-1 ${plan.highlighted ? 'text-muted' : 'text-muted'}`}>
+                    {plan.description}
+                  </p>
                 </div>
 
+                {/* Features */}
                 <ul className="space-y-3 mb-8 flex-1">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-start gap-3">
-                      <svg className="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-muted text-sm">{feature}</span>
+                      <Check
+                        size={16}
+                        strokeWidth={2.5}
+                        className={`mt-0.5 flex-shrink-0 ${plan.highlighted ? 'text-powder' : 'text-success'}`}
+                      />
+                      <span className={`text-sm ${plan.highlighted ? 'text-muted' : 'text-muted'}`}>
+                        {feature}
+                      </span>
                     </li>
                   ))}
                 </ul>
 
+                {/* CTA */}
                 <Link
-                  href={plan.href}
-                  className={`block w-full text-center font-semibold py-3 px-6 rounded-xl transition-colors text-sm ${plan.ctaStyle}`}
+                  href={plan.ctaHref}
+                  className={`block w-full text-center font-semibold py-3.5 px-6 rounded-xl transition-colors text-sm ${
+                    plan.highlighted
+                      ? 'bg-sapphire hover:bg-blue-700 text-white shadow-lg shadow-sapphire/30'
+                      : 'border border-powder text-text-dark hover:bg-ice'
+                  }`}
                 >
                   {plan.cta}
                 </Link>
@@ -123,10 +142,10 @@ export function PricingSection() {
           ))}
         </div>
 
-        <FadeIn delay={0.35} className="mt-10 text-center text-muted text-sm">
-          Все тарифы включают SSL, аудит-лог и Supabase RLS-изоляцию данных.
-          <br />
-          Цены указаны без НДС.
+        <FadeIn delay={0.3} className="mt-8 text-center text-sm text-muted">
+          Все тарифы включают SSL-шифрование, аудит-лог и изоляцию данных.
+          <br className="hidden sm:block" />
+          Нужно больше? <a href="mailto:hello@onecontract.kz" className="text-sapphire hover:underline">Напишите нам</a> — настроим под вашу школу.
         </FadeIn>
       </div>
     </section>
