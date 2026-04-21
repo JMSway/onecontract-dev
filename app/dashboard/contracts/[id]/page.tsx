@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageSquare, Mail, Copy, Check } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Mail, Copy, Check, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import type { ContractStatus } from '@/lib/dashboard/types'
 import type { TemplateField } from '@/lib/types'
 
 type ContractDetail = {
   id: string
+  template_id: string | null
   status: ContractStatus
   sent_via: 'sms' | 'email' | null
   recipient_name: string | null
@@ -35,6 +36,7 @@ function formatDate(iso: string | null | undefined): string {
 export default function ContractDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [contract, setContract] = useState<ContractDetail | null>(null)
+  const [pdfVia, setPdfVia] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -44,7 +46,10 @@ export default function ContractDetailPage() {
       .then((r) => r.json())
       .then((d) => {
         if (d.error) setError(d.error)
-        else setContract(d.contract)
+        else {
+          setContract(d.contract)
+          setPdfVia(d.pdfVia ?? null)
+        }
       })
       .catch(() => setError('Не удалось загрузить договор'))
       .finally(() => setLoading(false))
@@ -81,7 +86,27 @@ export default function ContractDetailPage() {
           <h1 className="text-2xl font-bold text-text-dark tracking-tight">
             {loading ? '…' : title}
           </h1>
-          {contract && <StatusBadge status={contract.status} />}
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {contract && <StatusBadge status={contract.status} />}
+            {contract?.status === 'signed' && pdfVia && pdfVia !== 'cached' && (
+              pdfVia === 'docx' ? (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg px-2 py-1">
+                  <CheckCircle2 size={11} strokeWidth={2} />
+                  Данные вставлены в документ
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1">
+                  <AlertTriangle size={11} strokeWidth={2} />
+                  Данные не вставлены.{' '}
+                  {contract.template_id && (
+                    <Link href={`/dashboard/templates/${contract.template_id}/edit`} className="underline">
+                      Настройте шаблон
+                    </Link>
+                  )}
+                </span>
+              )
+            )}
+          </div>
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import {
   FileText, CheckCircle2, Loader2, Download,
-  Lock, Shield, Share2, X, ChevronRight,
+  Lock, Shield, Share2, X, ChevronRight, ExternalLink,
 } from 'lucide-react'
 import { BoxLoader } from '@/components/ui/BoxLoader'
 import type { TemplateField } from '@/lib/types'
@@ -639,7 +639,7 @@ export default function SignPage() {
           onClick={() => setShowDetails(false)}
         >
           <div
-            className="relative bg-white w-full sm:max-w-xl sm:max-h-[90vh] h-[92vh] sm:h-auto rounded-t-3xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden"
+            className="relative bg-white w-full sm:max-w-xl sm:max-h-[90vh] h-screen sm:h-auto sm:rounded-2xl shadow-xl flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#D6E6F3] shrink-0">
@@ -669,12 +669,11 @@ export default function SignPage() {
                   />
                   <a
                     href={template.source_file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    download
                     className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
                   >
-                    <FileText size={13} strokeWidth={1.5} />
-                    Открыть в новой вкладке
+                    <Download size={13} strokeWidth={1.5} />
+                    Скачать оригинал
                   </a>
                 </div>
               ) : (

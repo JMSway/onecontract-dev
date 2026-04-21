@@ -360,3 +360,63 @@ export async function appendSummaryPage(
 
   return doc.save()
 }
+
+export type SignatureFooterParams = {
+  qrBuffer: Buffer | Uint8Array
+  sealHash: string
+  contractId: string
+  signedAt: string
+}
+
+/**
+ * Stamp the last page of an existing PDF with a compact signature footer:
+ * QR code + HMAC hash + verify URL. If the last page is shorter than 160pt
+ * (non-standard tiny page), a dedicated footer page is appended instead.
+ */
+export async function addSignatureFooter(
+  pdfBytes: Uint8Array,
+  params: SignatureFooterParams,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes)
+  doc.registerFontkit(fontkit)
+
+  const lf = await doc.embedFont(Buffer.from(NOTO_SANS_LATIN_WOFF_B64, 'base64'))
+  const cf = await doc.embedFont(Buffer.from(NOTO_SANS_CYRILLIC_WOFF_B64, 'base64'))
+
+  const pages = doc.getPages()
+  let lastPage = pages[pages.length - 1]
+  const { height: ph } = lastPage.getSize()
+
+  if (ph < 160) {
+    lastPage = doc.addPage([W, 130])
+  }
+
+  const { width: pw } = lastPage.getSize()
+  const qrSz = 60
+  const qrBottom = MARGIN + 4
+  const qrTop = qrBottom + qrSz
+  const sepY = qrTop + 6
+  const tx = MARGIN + qrSz + 10
+  const SZ = 7
+
+  lastPage.drawLine({
+    start: { x: MARGIN, y: sepY },
+    end: { x: pw - MARGIN, y: sepY },
+    thickness: 0.4,
+    color: ICE,
+  })
+
+  const qrImg = await doc.embedPng(params.qrBuffer)
+  lastPage.drawImage(qrImg, { x: MARGIN, y: qrBottom, width: qrSz, height: qrSz })
+
+  const dateStr = new Date(params.signedAt).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty',
+  })
+
+  drawMixed(lastPage, 'Подписано через OneContract · ' + dateStr, lf, cf, tx, qrTop - 2, SZ, MUTED)
+  drawMixed(lastPage, 'SHA-256: ' + params.sealHash.slice(0, 16) + '…', lf, cf, tx, qrTop - 13, SZ, TEXT)
+  drawMixed(lastPage, `onecontract.kz/verify/${params.contractId}`, lf, cf, tx, qrTop - 24, SZ, BLUE)
+
+  return doc.save()
+}

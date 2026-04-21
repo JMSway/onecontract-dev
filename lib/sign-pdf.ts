@@ -1,6 +1,6 @@
 import QRCode from 'qrcode'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { generateSignedContractPdf, appendSealPage, appendSummaryPage } from './pdf'
+import { generateSignedContractPdf, addSignatureFooter } from './pdf'
 import { fillTemplate } from './docx'
 import { convertDocxToPdf, readConvertApiSecret } from './convertapi'
 import { ensureSignedPdfUrl } from './pdf-cache'
@@ -184,25 +184,15 @@ export async function generateAndStorePdf(
   let finalPdf: Uint8Array
   try {
     if (basePdf) {
-      const { managerFields, clientFields } = buildSummaryFields(template, contract)
-      const withSummary = await appendSummaryPage(basePdf, {
-        orgName,
-        templateName: template.name ?? 'Договор',
-        contractId: meta.contractId,
-        managerFields,
-        clientFields,
-      })
       const qr = await buildQr(meta.contractId)
-      finalPdf = await appendSealPage(withSummary, {
-        contractId: meta.contractId,
-        signerPhone: meta.signerPhone,
-        signerIp: meta.signerIp,
-        signedAt: meta.signedAt,
+      finalPdf = await addSignatureFooter(basePdf, {
+        qrBuffer: qr,
         sealHash: meta.sealHash,
-        qrPngBuffer: qr,
+        contractId: meta.contractId,
+        signedAt: meta.signedAt,
       })
     } else {
-      // 4. Last-resort summary-only
+      // 4. Last-resort: summary-only pdf-lib render (already contains all data + QR inline)
       finalPdf = await summaryOnlyFallback(template, orgName, contract, meta)
       via = 'pdf_lib_fallback'
     }

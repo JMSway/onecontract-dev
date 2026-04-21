@@ -12,14 +12,19 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
-  const { data: contract, error } = await supabase
-    .from('contracts')
-    .select('*, templates(name, fields)')
-    .eq('id', id)
-    .single()
+  const [contractRes, pdfLogRes] = await Promise.all([
+    supabase.from('contracts').select('*, templates(name, fields)').eq('id', id).single(),
+    supabase
+      .from('audit_log')
+      .select('metadata')
+      .eq('contract_id', id)
+      .eq('action', 'pdf_generated')
+      .maybeSingle(),
+  ])
 
-  if (error || !contract) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  return NextResponse.json({ contract })
+  if (contractRes.error || !contractRes.data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const pdfVia = (pdfLogRes.data?.metadata as Record<string, string> | null)?.via ?? null
+  return NextResponse.json({ contract: contractRes.data, pdfVia })
 }
 
 export async function DELETE(

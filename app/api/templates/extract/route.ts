@@ -43,14 +43,14 @@ export async function POST(request: NextRequest) {
 (1) fields — список полей для формы
 (2) patches — список замен для docx-шаблона: уникальные подстроки в документе, которые нужно заменить на {{placeholder}}
 
-ТИПОВЫЕ ПОЛЯ:
-• Номер договора, дата договора
-• Реквизиты исполнителя: название, БИН, ФИО директора, юр. адрес
-• Данные заказчика: ФИО, ИИН, номер удостоверения, кем выдан, адрес, телефон, email
-• Данные ребёнка/обучающегося (если есть): ФИО, ИИН, дата рождения
-• Предмет: название курса/платформы/услуги, уровень, количество часов/занятий
-• Финансы: сумма, размер скидки, срок оплаты, валюта
-• Срок действия: дата начала, дата окончания, количество месяцев
+СТРОГИЕ ОГРАНИЧЕНИЯ:
+- Максимум 12 полей в fields. Если нашёл больше — оставь только САМЫЕ важные.
+- НЕ добавляй поля из Приложений (Прейскурант, Акт и т.д.) если они повторяют поля из основного договора
+- НЕ создавай отдельные поля для одного и того же: «ФИО Заказчика» и «Имя Заказчика» — это ОДНО поле
+- НЕ создавай поле если в документе нет явного места для вставки (подчёркивания, скобок, двоеточий)
+- Для БИН/ИИН/банковских реквизитов исполнителя — НЕ создавай поля, они уже есть в шаблоне
+- Приоритизируй поля из контекста «Заказчик», «Обучающийся», «Клиент»
+- НЕ создавай поля для служебных строк: «Директор», «М.П.», «БИК», «ИИК»
 
 КАК НАХОДИТЬ ПОЛЯ:
 - Явные маркеры: «___», «____», «[___]», «(____)», «{поле}», «____________»
@@ -73,6 +73,22 @@ export async function POST(request: NextRequest) {
   * ОДНА подстановка на patch — не объединяй несколько полей в один patch
 - Если поле нельзя надёжно локализовать (например в шаблоне нет уникального маркера) — добавь поле в fields, но НЕ добавляй в patches
 
+ПРИМЕР ПРАВИЛЬНОГО АНАЛИЗА:
+Текст: «г.Астана __.__ 2024 года. ФИО Заказчика: _____, ИИН: _____»
+Правильный ответ:
+{
+  "fields": [
+    {"key": "contract_date", "label": "Дата договора", "type": "date", "required": true},
+    {"key": "customer_name", "label": "ФИО Заказчика", "type": "text", "required": true},
+    {"key": "customer_iin", "label": "ИИН Заказчика", "type": "iin", "required": true}
+  ],
+  "patches": [
+    {"search": "г.Астана __.__", "replace": "г.Астана {{contract_date}}"},
+    {"search": "ФИО Заказчика: _____", "replace": "ФИО Заказчика: {{customer_name}}"},
+    {"search": "ИИН: _____", "replace": "ИИН: {{customer_iin}}"}
+  ]
+}
+
 Верни ТОЛЬКО JSON, БЕЗ markdown-обёртки, БЕЗ пояснений:
 {
   "fields": [{"key": "...", "label": "...", "type": "...", "required": true}],
@@ -82,63 +98,50 @@ export async function POST(request: NextRequest) {
 ТЕКСТ ДОГОВОРА:
 ${excerpt}`
 
-  // Models ordered by reliability. All free ($0 per request).
-  const models = [
-    'google/gemma-3-27b-it:free',
-    'google/gemma-3-12b-it:free',
-    'meta-llama/llama-3.3-70b-instruct:free',
-    'google/gemma-3-4b-it:free',
-    'nvidia/nemotron-3-super-120b-a12b:free',
-  ]
-
-  const RETRY_STATUSES = new Set([429, 502, 503, 504])
+  const MODEL = 'google/gemma-3-27b-it:free'
 
   let fields: TemplateField[] = []
   let patches: DocxPatch[] = []
-  for (const model of models) {
-    try {
-      const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://onecontract.kz',
-          'X-Title': 'OneContract',
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.1,
-          max_tokens: 4096,
-        }),
-      })
+  try {
+    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://onecontract.kz',
+        'X-Title': 'OneContract',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+        max_tokens: 4096,
+      }),
+    })
 
-      if (!aiRes.ok) {
-        if (RETRY_STATUSES.has(aiRes.status)) {
-          console.warn(`[extract] ${model} rate-limited (${aiRes.status}), trying next`)
-          continue
-        }
-        console.warn(`[extract] ${model} error ${aiRes.status}, trying next`)
-        continue
-      }
-
-      const aiJson = await aiRes.json()
-      const content: string = aiJson.choices?.[0]?.message?.content ?? ''
-      if (!content) {
-        console.warn(`[extract] ${model} returned empty content, trying next`)
-        continue
-      }
-
-      const parsed = parseAIResponse(content)
-      if (parsed.fields.length > 0) {
-        fields = parsed.fields
-        patches = dedupePatches(validatePatches(parsed.patches, fields, excerpt))
-        console.info(`[extract] ${model} → ${fields.length} fields, ${patches.length} patches`)
-        break
-      }
-    } catch (e) {
-      console.warn(`[extract] ${model} threw:`, e)
+    if (!aiRes.ok) {
+      console.warn(`[extract] ${MODEL} error ${aiRes.status}`)
+      return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
     }
+
+    const aiJson = await aiRes.json()
+    const content: string = aiJson.choices?.[0]?.message?.content ?? ''
+    if (!content) {
+      console.warn(`[extract] ${MODEL} returned empty content`)
+      return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
+    }
+
+    const parsed = parseAIResponse(content)
+    if (parsed.fields.length > 0) {
+      fields = dedupeFields(parsed.fields)
+      patches = dedupePatches(validatePatches(parsed.patches, fields, excerpt))
+      console.info(`[extract] ${MODEL} → ${fields.length} fields, ${patches.length} patches`)
+    } else {
+      return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
+    }
+  } catch (e) {
+    console.warn(`[extract] ${MODEL} threw:`, e)
+    return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
   }
 
   return NextResponse.json({ fields, patches })
@@ -214,6 +217,34 @@ function normalizeFields(raw: unknown): TemplateField[] {
       }
     })
     .filter((f) => f.key.length > 0)
+    .slice(0, 12)
+}
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => (j === 0 ? i : 0)),
+  )
+  for (let j = 1; j <= n; j++) dp[0][j] = j
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    }
+  }
+  return dp[m][n]
+}
+
+function dedupeFields(fields: TemplateField[]): TemplateField[] {
+  const kept: TemplateField[] = []
+  for (const f of fields) {
+    const isDup = kept.some(
+      (k) => levenshtein(k.label.toLowerCase(), f.label.toLowerCase()) < 4,
+    )
+    if (!isDup) kept.push(f)
+  }
+  return kept
 }
 
 function normalizePatches(raw: unknown): DocxPatch[] {
