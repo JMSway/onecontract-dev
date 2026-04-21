@@ -28,10 +28,16 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    try {
-      const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
+    const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
 
-      if (!error && session?.user) {
+    if (error) {
+      const loginUrl = new URL('/auth/login', origin)
+      loginUrl.searchParams.set('error', 'auth')
+      return NextResponse.redirect(loginUrl)
+    }
+
+    if (session?.user) {
+      try {
         await supabase.from('users').upsert(
           {
             id: session.user.id,
@@ -44,11 +50,9 @@ export async function GET(request: NextRequest) {
           },
           { onConflict: 'id', ignoreDuplicates: true }
         )
+      } catch (e) {
+        console.error('[auth/callback] upsert users:', e)
       }
-    } catch {
-      const loginUrl = new URL('/auth/login', origin)
-      loginUrl.searchParams.set('error', 'auth')
-      return NextResponse.redirect(loginUrl)
     }
   }
 
