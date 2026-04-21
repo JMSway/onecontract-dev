@@ -1,14 +1,43 @@
 # OneContract
 
-## Deployment (Dual Environment on Cloudflare Pages)
-Two explicit Cloudflare projects linked to two GitHub repositories:
-- **onecontract-dev** (this repo): Development & Testing environment (AI playground). ALL regular work, commits, and pushes MUST go here. Pushing here automatically updates the dev URL.
-- **onecontract** (production): Production environment, strictly connected to the custom domain (onecontract.kz). Clean code, scrubbed from ALL AI markers.
+## Deployment
+Repositories:
+- **onecontract-dev** → active development (this repo). ALL regular work, commits, and pushes MUST go here.
+- **onecontract** → production clean repo (no CLAUDE.md, no AI markers)
+
+Hosting: Cloudflare Pages (NEVER use Vercel)
+Domain: onecontract.kz
+Cloudflare project: onecontract-2of.pages.dev (production)
+
+Deploy command: ./scripts/deploy-production.sh
+Auto-deploy: Cloudflare watches onecontract repo → rebuilds on every push automatically
+
+Cloudflare build settings:
+  Build command: npx @cloudflare/next-on-pages@1
+  Output: .vercel/output/static
+  Compatibility flag: nodejs_compat
+
+Environment variables (set in Cloudflare Pages dashboard):
+  NEXT_PUBLIC_SUPABASE_URL
+  NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+Supabase project: onecontract-production
+Supabase URL: https://zideehxygpnehkjeeqzr.supabase.co
+Supabase Redirect URLs configured:
+  https://onecontract.kz/**
+  https://onecontract-2of.pages.dev/**
+  http://localhost:3000/**
+
+Google OAuth: configured via Google Cloud Console
+  Project: OneContract (resounding-age-494001-f3)
+  Client: OneContract Web
+  Status: Published (all users can sign in)
+  Callback: https://zideehxygpnehkjeeqzr.supabase.co/auth/v1/callback
 
 **CRITICAL DEPLOYMENT RULES FOR AI:**
 1. **Always push to DEV:** When completing tasks, you MUST ALWAYS `git push` to `onecontract-dev`. This triggers the dev deployment so the user can verify changes.
 2. **NEVER touch PRODUCTION automatically:** You must NEVER push directly or try to sync code to the `onecontract` production repo unless the user explicitly commands: "Deploy to production".
-3. **Deploying to production:** When given the explicit command to deploy, ONLY use the `scripts/deploy-production.sh` script. This script perfectly handles the stripping of AI artifacts and pushes securely to production.
+3. **Deploying to production:** When given the explicit command to deploy, ONLY use the `scripts/deploy-production.sh` script.
 
 Electronic contract platform for educational centers in Kazakhstan.
 Language schools as anchor segment → IT courses & online schools in wave 2.
