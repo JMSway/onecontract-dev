@@ -7,6 +7,8 @@ import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
 import type { DashboardUser } from '@/lib/dashboard/types'
 
+export const runtime = 'edge'
+
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
   const {
