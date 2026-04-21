@@ -14,6 +14,8 @@ type ApiContract = {
   recipient_name: string | null
   created_at: string
   sent_at: string | null
+  pdf_url: string | null
+  retention_until: string | null
   templates: { name: string } | null
 }
 
@@ -28,6 +30,8 @@ function toRow(c: ApiContract): DashContract {
     channel: c.sent_via ?? 'sms',
     sentAt: c.sent_at,
     createdAt: c.created_at,
+    pdfUrl: c.pdf_url ?? null,
+    retentionUntil: c.retention_until ?? null,
   }
 }
 
@@ -107,7 +111,11 @@ export default function ContractsListPage() {
               <span>Дата</span>
             </div>
             {contracts.map((c) => (
-              <ContractRow key={c.id} contract={c} />
+              <ContractRow
+                key={c.id}
+                contract={c}
+                onDelete={(id) => setContracts((prev) => prev.filter((x) => x.id !== id))}
+              />
             ))}
           </div>
         )}
