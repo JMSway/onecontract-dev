@@ -47,7 +47,7 @@ async function _getContracts(orgId: string): Promise<Contract[]> {
 }
 
 export function getContracts(orgId: string): Promise<Contract[]> {
-  return cached(`contracts:${orgId}`, 60, () => _getContracts(orgId))
+  return cached(`contracts:${orgId}`, 10, () => _getContracts(orgId))
 }
 
 async function _getTemplates(orgId: string): Promise<Template[]> {
@@ -68,6 +68,11 @@ export function getTemplates(orgId: string): Promise<Template[]> {
 
 export function invalidateTemplatesCache(orgId: string): void {
   _cache.delete(`templates:${orgId}`)
+}
+
+export function invalidateContractsCache(orgId: string): void {
+  _cache.delete(`contracts:${orgId}`)
+  _cache.delete(`stats:${orgId}`)
 }
 
 async function _getDashboardStats(orgId: string): Promise<DashboardStats> {

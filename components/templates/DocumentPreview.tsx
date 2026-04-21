@@ -28,6 +28,8 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
   const [numPages, setNumPages] = useState<number>(0)
   const [pdfError, setPdfError] = useState<string | null>(null)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfLoadTimeout, setPdfLoadTimeout] = useState(false)
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [zoom, setZoom] = useState(1)
 
   const inlineContainerRef = useRef<HTMLDivElement | null>(null)
@@ -96,12 +98,16 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
   }, [expanded])
 
   const handleLoadSuccess = useCallback(({ numPages: n }: { numPages: number }) => {
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current)
+    setPdfLoadTimeout(false)
     setNumPages(n)
     setPdfLoading(false)
     setPdfError(null)
   }, [])
 
   const handleLoadError = useCallback((err: Error) => {
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current)
+    setPdfLoadTimeout(false)
     console.error('[DocumentPreview] pdf load error:', err)
     setPdfError('Не удалось загрузить PDF')
     setPdfLoading(false)
@@ -110,6 +116,8 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
   const handleLoadStart = useCallback(() => {
     setPdfLoading(true)
     setPdfError(null)
+    setPdfLoadTimeout(false)
+    loadTimeoutRef.current = setTimeout(() => setPdfLoadTimeout(true), 12000)
   }, [])
 
   const renderPdf = (containerWidth: number, mode: 'inline' | 'full') => {
@@ -133,8 +141,24 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
           onLoadSuccess={handleLoadSuccess}
           onLoadError={handleLoadError}
           loading={
-            <div className="flex items-center justify-center py-16">
-              <BoxLoader />
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              {pdfLoadTimeout ? (
+                <>
+                  <p className="text-sm text-[#6B7E92] text-center">Загрузка занимает дольше обычного</p>
+                  {fileUrl && (
+                    <a
+                      href={fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#0F52BA] hover:underline font-medium"
+                    >
+                      Открыть в новой вкладке →
+                    </a>
+                  )}
+                </>
+              ) : (
+                <BoxLoader />
+              )}
             </div>
           }
           error={
