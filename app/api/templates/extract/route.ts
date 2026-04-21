@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const apiKey = readOpenrouterKey()
   if (!apiKey) {
-    return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
+    return NextResponse.json({ fields: [], aiUnavailable: true }, { status: 200 })
   }
 
   const excerpt = text.slice(0, 8000)

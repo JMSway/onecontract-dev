@@ -16,6 +16,7 @@ interface FieldsEditorProps {
   onSave: () => void
   saving: boolean
   error: string | null
+  aiUnavailable?: boolean
 }
 
 export function FieldsEditor({
@@ -31,9 +32,16 @@ export function FieldsEditor({
   onSave,
   saving,
   error,
+  aiUnavailable,
 }: FieldsEditorProps) {
   return (
     <div className="bg-white border border-[#D6E6F3] rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
+      {aiUnavailable && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          AI-анализ недоступен — добавьте поля вручную или настройте ключ OpenRouter в Cloudflare
+        </div>
+      )}
       <div className="space-y-3">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-widest text-[#6B7E92] mb-1.5">

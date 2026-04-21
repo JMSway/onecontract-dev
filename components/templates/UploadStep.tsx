@@ -14,6 +14,7 @@ export interface UploadResult {
   fileKind: FileKind
   fields: EditableField[]
   baseName: string
+  aiUnavailable?: boolean
 }
 
 interface UploadStepProps {
@@ -125,7 +126,8 @@ export function UploadStep({ onReady }: UploadStepProps) {
 
         const baseName = file.name.replace(/\.(docx|pdf)$/i, '')
 
-        onReady({ file, fileUrl, fileKind, fields: editable, baseName })
+        const aiUnavailable = (json as { aiUnavailable?: boolean }).aiUnavailable ?? false
+        onReady({ file, fileUrl, fileKind, fields: editable, baseName, aiUnavailable })
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Ошибка при обработке файла')
         setLoading(false)

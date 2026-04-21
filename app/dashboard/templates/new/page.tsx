@@ -25,6 +25,7 @@ export default function NewTemplatePage() {
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiUnavailable, setAiUnavailable] = useState(false)
 
   const handleReady = (r: UploadResult) => {
     setFile(r.file)
@@ -34,6 +35,7 @@ export default function NewTemplatePage() {
     setTemplateName(r.baseName)
     setDescription('')
     setError(null)
+    setAiUnavailable(r.aiUnavailable ?? false)
     setStep('edit')
   }
 
@@ -127,6 +129,7 @@ export default function NewTemplatePage() {
             onSave={handleSave}
             saving={saving}
             error={error}
+            aiUnavailable={aiUnavailable}
           />
         )}
       </div>

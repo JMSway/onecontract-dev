@@ -20,6 +20,7 @@ interface EditorStepProps {
   onSave: () => void
   saving: boolean
   error: string | null
+  aiUnavailable?: boolean
 }
 
 export function EditorStep(props: EditorStepProps) {
