@@ -11,7 +11,7 @@ export async function POST(
 
   const { data: contract } = await supabase
     .from('contracts')
-    .select('id, status, org_id')
+    .select('id, status, org_id, recipient_phone, template_id')
     .eq('id', contractId)
     .maybeSingle()
 
@@ -35,6 +35,7 @@ export async function POST(
 
   if (!sig) return NextResponse.json({ success: false, error: 'Код не найден. Запросите новый.' })
 
+  // signer_ua stores expiry ISO string temporarily
   const expiresAt = sig.signer_ua ? new Date(sig.signer_ua).getTime() : 0
   if (Date.now() > expiresAt) {
     return NextResponse.json({ success: false, error: 'Код истёк. Запросите новый.' })
@@ -47,19 +48,36 @@ export async function POST(
 
   const now = new Date().toISOString()
 
+  // Generate seal hash
+  const sealData = JSON.stringify({
+    contractId,
+    signedAt: now,
+    signerPhone: contract.recipient_phone,
+    method: 'sms_otp',
+    templateId: contract.template_id,
+  })
+  const sealHash = createHash('sha256').update(sealData).digest('hex')
+
+  const signerIp =
+    request.headers.get('cf-connecting-ip') ??
+    request.headers.get('x-forwarded-for') ??
+    null
+  const signerUa = request.headers.get('user-agent') ?? null
+
   await Promise.all([
     supabase
       .from('contracts')
-      .update({ status: 'signed', signed_at: now })
+      .update({ status: 'signed', signed_at: now, pdf_hash: sealHash })
       .eq('id', contractId),
     supabase
       .from('signatures')
-      .update({ otp_verified_at: now })
+      .update({ otp_verified_at: now, signer_ip: signerIp, signer_ua: signerUa })
       .eq('id', sig.id),
     supabase.from('audit_log').insert({
       contract_id: contractId,
       action: 'contract_signed',
       actor: 'client',
+      metadata: { method: 'sms_otp', sealHash },
       created_at: now,
     }),
   ])
