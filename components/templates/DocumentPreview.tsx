@@ -43,14 +43,22 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
     if (fileKind !== 'docx') return
     if (!file && !fileUrl) return
     let cancelled = false
+    let abortController: AbortController | null = null
     setDocxLoading(true)
     setDocxError(null)
     ;(async () => {
       try {
         const mammoth = await import('mammoth/mammoth.browser')
-        const arrayBuffer = file
-          ? await file.arrayBuffer()
-          : await (await fetch(fileUrl!)).arrayBuffer()
+        let arrayBuffer: ArrayBuffer
+        if (file) {
+          arrayBuffer = await file.arrayBuffer()
+        } else {
+          abortController = new AbortController()
+          const timeoutId = setTimeout(() => abortController!.abort(), 15000)
+          const response = await fetch(fileUrl!, { signal: abortController.signal })
+          clearTimeout(timeoutId)
+          arrayBuffer = await response.arrayBuffer()
+        }
         const result = await mammoth.convertToHtml({ arrayBuffer })
         if (!cancelled) setDocxHtml(result.value)
       } catch (e) {
@@ -64,6 +72,7 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
     })()
     return () => {
       cancelled = true
+      abortController?.abort()
     }
   }, [file, fileUrl, fileKind])
 
@@ -207,8 +216,18 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
     }
     if (docxError) {
       return (
-        <div className="flex items-center justify-center p-6 text-center h-full">
+        <div className="flex flex-col items-center justify-center p-6 text-center h-full gap-3">
           <p className="text-sm text-[#6B7E92]">{docxError}</p>
+          {fileUrl && (
+            <a
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[#0F52BA] hover:underline font-medium"
+            >
+              Открыть в новой вкладке →
+            </a>
+          )}
         </div>
       )
     }

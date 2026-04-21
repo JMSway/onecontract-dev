@@ -213,7 +213,11 @@ export default function SignPage() {
 
   const { contract, template, org } = data
   const managerFields = template.fields.filter((f) => (f.filled_by ?? 'manager') === 'manager')
-  const clientFields = template.fields.filter((f) => f.filled_by === 'client')
+  const explicitClientFields = template.fields.filter((f) => f.filled_by === 'client')
+  // Fallback: if template predates filled_by support, show any field the manager left empty
+  const clientFields = explicitClientFields.length > 0
+    ? explicitClientFields
+    : template.fields.filter((f) => !contract.data?.[f.key as keyof typeof contract.data])
 
   const clientFormValid = clientFields.every((f) => {
     if (!f.required) return true

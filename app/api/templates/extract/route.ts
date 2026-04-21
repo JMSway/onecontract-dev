@@ -145,7 +145,18 @@ ${excerpt}`
 }
 
 function autoFilledBy(key: string): TemplateField['filled_by'] {
-  const clientKeys = ['iin', 'address', 'document', 'passport', 'issued', 'resident', 'phone', 'email', 'mobile']
+  const clientKeys = [
+    // identity / personal data
+    'iin', 'address', 'document', 'passport', 'issued', 'resident',
+    'phone', 'email', 'mobile',
+    // name fields
+    'name', 'fio', 'full_name', 'fullname',
+    // role-based personal fields
+    'student', 'client', 'zakazchik', 'customer', 'buyer',
+    'parent', 'guardian', 'child', 'pupil',
+    // birth / biometric
+    'born', 'birth', 'dob', 'signer',
+  ]
   const lower = key.toLowerCase()
   if (clientKeys.some((k) => lower.includes(k))) return 'client'
   return 'manager'
