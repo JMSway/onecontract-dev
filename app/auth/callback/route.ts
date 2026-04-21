@@ -4,13 +4,25 @@ import { NextRequest, NextResponse } from 'next/server'
 export const runtime = 'edge'
 
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url)
+  const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/dashboard'
 
+  // Use x-forwarded-host when available (Cloudflare Workers proxies the real domain)
+  const host =
+    request.headers.get('x-forwarded-host') ??
+    request.headers.get('host') ??
+    new URL(request.url).host
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https'
+  const origin = `${proto}://${host}`
+
   const redirectTo = NextResponse.redirect(`${origin}${next}`)
 
-  if (code) {
+  if (!code) {
+    return redirectTo
+  }
+
+  try {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,6 +43,7 @@ export async function GET(request: NextRequest) {
     const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (error) {
+      console.error('[auth/callback] exchangeCodeForSession:', error.message)
       const loginUrl = new URL('/auth/login', origin)
       loginUrl.searchParams.set('error', 'auth')
       return NextResponse.redirect(loginUrl)
@@ -54,6 +67,11 @@ export async function GET(request: NextRequest) {
         console.error('[auth/callback] upsert users:', e)
       }
     }
+  } catch (e) {
+    console.error('[auth/callback] fatal:', e)
+    const loginUrl = new URL('/auth/login', origin)
+    loginUrl.searchParams.set('error', 'auth')
+    return NextResponse.redirect(loginUrl)
   }
 
   return redirectTo
