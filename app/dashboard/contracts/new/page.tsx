@@ -1,8 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Check, LayoutTemplate, User, Send, FileCheck } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  LayoutTemplate,
+  User,
+  Send,
+  FileCheck,
+  MessageSquare,
+  Mail,
+  AlertCircle,
+} from 'lucide-react'
+import type { Template, TemplateField } from '@/lib/types'
 
 const STEPS = [
   { id: 1, label: 'Шаблон', icon: LayoutTemplate },
@@ -11,8 +24,98 @@ const STEPS = [
   { id: 4, label: 'Превью', icon: FileCheck },
 ]
 
+type WizardState = {
+  template: Template | null
+  fieldValues: Record<string, string>
+  sendChannel: 'sms' | 'email' | null
+  recipientName: string
+  recipientPhone: string
+  recipientEmail: string
+}
+
+const INITIAL: WizardState = {
+  template: null,
+  fieldValues: {},
+  sendChannel: null,
+  recipientName: '',
+  recipientPhone: '',
+  recipientEmail: '',
+}
+
+function inputType(t: TemplateField['type']): string {
+  if (t === 'date') return 'date'
+  if (t === 'number') return 'number'
+  if (t === 'phone' || t === 'iin') return 'tel'
+  if (t === 'email') return 'email'
+  return 'text'
+}
+
+function pluralFields(n: number): string {
+  if (n === 1) return '1 поле'
+  if (n >= 2 && n <= 4) return `${n} поля`
+  return `${n} полей`
+}
+
 export default function NewContractWizardPage() {
+  const router = useRouter()
   const [step, setStep] = useState(1)
+  const [state, setState] = useState<WizardState>(INITIAL)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/templates')
+      .then((r) => r.json())
+      .then((d) => setTemplates(d.templates ?? []))
+      .finally(() => setLoadingTemplates(false))
+  }, [])
+
+  function canProceed(): boolean {
+    if (step === 1) return state.template !== null
+    if (step === 2) {
+      if (!state.template) return false
+      return state.template.fields
+        .filter((f) => f.required)
+        .every((f) => (state.fieldValues[f.key] ?? '').trim() !== '')
+    }
+    if (step === 3) {
+      if (!state.sendChannel || !state.recipientName.trim()) return false
+      if (state.sendChannel === 'sms') return state.recipientPhone.trim() !== ''
+      return state.recipientEmail.trim() !== ''
+    }
+    return true
+  }
+
+  async function handleSubmit() {
+    if (!state.template || !state.sendChannel) return
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const res = await fetch('/api/contracts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template_id: state.template.id,
+          data: state.fieldValues,
+          sent_via: state.sendChannel,
+          recipient_name: state.recipientName,
+          recipient_phone:
+            state.sendChannel === 'sms' ? state.recipientPhone : undefined,
+          recipient_email:
+            state.sendChannel === 'email' ? state.recipientEmail : undefined,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? 'Ошибка создания договора')
+      router.push(`/dashboard/contracts/${json.contract.id}`)
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Ошибка')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -27,6 +130,7 @@ export default function NewContractWizardPage() {
         <h1 className="text-2xl font-bold text-text-dark tracking-tight">Новый договор</h1>
       </div>
 
+      {/* Step indicator */}
       <div className="bg-white border border-ice rounded-2xl p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           {STEPS.map((s, i) => {
@@ -72,39 +176,302 @@ export default function NewContractWizardPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-ice rounded-2xl p-8 shadow-sm min-h-[360px] flex flex-col">
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <div className="w-14 h-14 rounded-full bg-ice flex items-center justify-center mb-5">
-            <LayoutTemplate size={26} strokeWidth={1.5} className="text-sapphire" />
-          </div>
-          <h2 className="text-lg font-semibold text-text-dark mb-2 tracking-tight">
-            Шаг {step}: {STEPS[step - 1].label}
-          </h2>
-          <p className="text-sm text-muted max-w-md leading-relaxed">
-            Подключение к Supabase и AI-извлечению полей из шаблонов появится на следующем этапе.
-            Пока это заглушка мастера.
-          </p>
+      {/* Step content */}
+      <div className="bg-white border border-ice rounded-2xl p-6 md:p-8 shadow-sm min-h-[360px] flex flex-col">
+        <div className="flex-1">
+
+          {/* STEP 1 — Template selection */}
+          {step === 1 && (
+            <div>
+              <h2 className="text-lg font-semibold text-text-dark mb-1 tracking-tight">
+                Выберите шаблон
+              </h2>
+              <p className="text-sm text-muted mb-6">На основе шаблона будет создан договор</p>
+              {loadingTemplates ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[1, 2].map((n) => (
+                    <div key={n} className="h-24 rounded-xl bg-ice animate-pulse" />
+                  ))}
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="text-center py-12">
+                  <LayoutTemplate
+                    size={40}
+                    strokeWidth={1.5}
+                    className="text-muted mx-auto mb-3"
+                  />
+                  <p className="text-sm text-muted mb-4">Нет доступных шаблонов</p>
+                  <Link
+                    href="/dashboard/templates"
+                    className="text-sm font-semibold text-sapphire hover:underline"
+                  >
+                    Создать шаблон →
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => {
+                        setState((s) => ({ ...s, template: t, fieldValues: {} }))
+                        setStep(2)
+                      }}
+                      className={`text-left p-4 rounded-xl border-2 transition-all ${
+                        state.template?.id === t.id
+                          ? 'border-sapphire bg-sapphire/5'
+                          : 'border-ice hover:border-powder'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-text-dark mb-1">{t.name}</p>
+                      {t.description && (
+                        <p className="text-xs text-muted line-clamp-2 mb-2">{t.description}</p>
+                      )}
+                      <p className="text-xs text-muted">{pluralFields(t.fields.length)}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 2 — Fill fields */}
+          {step === 2 && state.template && (
+            <div>
+              <h2 className="text-lg font-semibold text-text-dark mb-1 tracking-tight">
+                Данные клиента
+              </h2>
+              <p className="text-sm text-muted mb-6">
+                Шаблон:{' '}
+                <span className="font-medium text-text-dark">{state.template.name}</span>
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {state.template.fields.map((field) => (
+                  <div key={field.key}>
+                    <label className="block text-xs font-semibold text-text-dark mb-1.5">
+                      {field.label}
+                      {field.required && <span className="text-danger ml-1">*</span>}
+                    </label>
+                    <input
+                      type={inputType(field.type)}
+                      value={state.fieldValues[field.key] ?? ''}
+                      onChange={(e) =>
+                        setState((s) => ({
+                          ...s,
+                          fieldValues: { ...s.fieldValues, [field.key]: e.target.value },
+                        }))
+                      }
+                      placeholder={field.label}
+                      className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3 — Send method */}
+          {step === 3 && (
+            <div>
+              <h2 className="text-lg font-semibold text-text-dark mb-1 tracking-tight">
+                Способ отправки
+              </h2>
+              <p className="text-sm text-muted mb-6">
+                Как клиент получит ссылку для подписания
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                {(
+                  [
+                    ['sms', MessageSquare, 'SMS', 'Отправить ссылку по SMS'],
+                    ['email', Mail, 'Email', 'Отправить ссылку по Email'],
+                  ] as const
+                ).map(([val, Icon, title, desc]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setState((s) => ({ ...s, sendChannel: val }))}
+                    className={`flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${
+                      state.sendChannel === val
+                        ? 'border-sapphire bg-sapphire/5'
+                        : 'border-ice hover:border-powder'
+                    }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        state.sendChannel === val
+                          ? 'bg-sapphire text-white'
+                          : 'bg-ice text-muted'
+                      }`}
+                    >
+                      <Icon size={16} strokeWidth={1.5} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-text-dark">{title}</p>
+                      <p className="text-xs text-muted">{desc}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {state.sendChannel && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-text-dark mb-1.5">
+                      Имя клиента <span className="text-danger">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={state.recipientName}
+                      onChange={(e) =>
+                        setState((s) => ({ ...s, recipientName: e.target.value }))
+                      }
+                      placeholder="Иванов Иван"
+                      className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                    />
+                  </div>
+                  {state.sendChannel === 'sms' ? (
+                    <div>
+                      <label className="block text-xs font-semibold text-text-dark mb-1.5">
+                        Телефон <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={state.recipientPhone}
+                        onChange={(e) =>
+                          setState((s) => ({ ...s, recipientPhone: e.target.value }))
+                        }
+                        placeholder="+7 700 000 00 00"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold text-text-dark mb-1.5">
+                        Email <span className="text-danger">*</span>
+                      </label>
+                      <input
+                        type="email"
+                        value={state.recipientEmail}
+                        onChange={(e) =>
+                          setState((s) => ({ ...s, recipientEmail: e.target.value }))
+                        }
+                        placeholder="client@email.com"
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* STEP 4 — Preview */}
+          {step === 4 && state.template && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-lg font-semibold text-text-dark mb-1 tracking-tight">
+                  Превью договора
+                </h2>
+                <p className="text-sm text-muted">Проверьте данные перед отправкой</p>
+              </div>
+
+              <div className="rounded-xl border border-ice p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-2">
+                  Шаблон
+                </p>
+                <p className="text-sm font-semibold text-text-dark">{state.template.name}</p>
+              </div>
+
+              <div className="rounded-xl border border-ice p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+                  Данные
+                </p>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                  {state.template.fields.map((f) => (
+                    <div key={f.key}>
+                      <dt className="text-xs text-muted">{f.label}</dt>
+                      <dd className="text-sm font-medium text-text-dark truncate">
+                        {state.fieldValues[f.key] || '—'}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              <div className="rounded-xl border border-ice p-4">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-3">
+                  Отправка
+                </p>
+                <div className="space-y-1.5">
+                  <div className="flex gap-2 text-sm">
+                    <span className="text-muted w-20 flex-shrink-0">Канал:</span>
+                    <span className="font-medium text-text-dark">
+                      {state.sendChannel === 'sms' ? 'SMS' : 'Email'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2 text-sm">
+                    <span className="text-muted w-20 flex-shrink-0">Клиент:</span>
+                    <span className="font-medium text-text-dark">{state.recipientName}</span>
+                  </div>
+                  {state.sendChannel === 'sms' && state.recipientPhone && (
+                    <div className="flex gap-2 text-sm">
+                      <span className="text-muted w-20 flex-shrink-0">Телефон:</span>
+                      <span className="font-medium text-text-dark">{state.recipientPhone}</span>
+                    </div>
+                  )}
+                  {state.sendChannel === 'email' && state.recipientEmail && (
+                    <div className="flex gap-2 text-sm">
+                      <span className="text-muted w-20 flex-shrink-0">Email:</span>
+                      <span className="font-medium text-text-dark">{state.recipientEmail}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {submitError && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-danger/10 text-danger text-sm">
+                  <AlertCircle size={16} strokeWidth={1.5} />
+                  {submitError}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
+        {/* Navigation */}
         <div className="flex items-center justify-between border-t border-ice pt-5 mt-5">
           <button
             type="button"
-            onClick={() => setStep(Math.max(1, step - 1))}
+            onClick={() => setStep((s) => Math.max(1, s - 1))}
             disabled={step === 1}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-text-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             <ArrowLeft size={14} strokeWidth={1.5} />
             Назад
           </button>
-          <button
-            type="button"
-            onClick={() => setStep(Math.min(STEPS.length, step + 1))}
-            disabled={step === STEPS.length}
-            className="inline-flex items-center gap-1.5 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
-          >
-            {step === STEPS.length ? 'Отправить' : 'Далее'}
-            <ArrowRight size={14} strokeWidth={1.5} />
-          </button>
+
+          {step < 4 ? (
+            <button
+              type="button"
+              onClick={() => setStep((s) => Math.min(4, s + 1))}
+              disabled={!canProceed()}
+              className="inline-flex items-center gap-1.5 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
+            >
+              Далее
+              <ArrowRight size={14} strokeWidth={1.5} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="inline-flex items-center gap-1.5 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
+            >
+              {submitting ? 'Создаём…' : 'Создать и отправить'}
+              <ArrowRight size={14} strokeWidth={1.5} />
+            </button>
+          )}
         </div>
       </div>
     </div>
