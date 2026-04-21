@@ -7,7 +7,7 @@ import { ArrowLeft } from 'lucide-react'
 import { UploadStep, type UploadResult } from '@/components/templates/UploadStep'
 import { EditorStep } from '@/components/templates/EditorStep'
 import type { EditableField } from '@/components/templates/FieldRow'
-import type { Template, TemplateField } from '@/lib/types'
+import type { DocxPatch, Template, TemplateField } from '@/lib/types'
 
 type Step = 'upload' | 'edit'
 
@@ -17,9 +17,11 @@ export default function NewTemplatePage() {
   const [step, setStep] = useState<Step>('upload')
   const [file, setFile] = useState<File | null>(null)
   const [fileUrl, setFileUrl] = useState<string | null>(null)
+  const [fileStoragePath, setFileStoragePath] = useState<string | null>(null)
   const [fileKind, setFileKind] = useState<'pdf' | 'docx' | null>(null)
 
   const [fields, setFields] = useState<EditableField[]>([])
+  const [patches, setPatches] = useState<DocxPatch[]>([])
   const [templateName, setTemplateName] = useState('')
   const [description, setDescription] = useState('')
 
@@ -30,8 +32,10 @@ export default function NewTemplatePage() {
   const handleReady = (r: UploadResult) => {
     setFile(r.file)
     setFileUrl(r.fileUrl)
+    setFileStoragePath(r.fileStoragePath)
     setFileKind(r.fileKind)
     setFields(r.fields)
+    setPatches(r.patches ?? [])
     setTemplateName(r.baseName)
     setDescription('')
     setError(null)
@@ -78,6 +82,9 @@ export default function NewTemplatePage() {
           description: description.trim() || undefined,
           fields: cleanFields,
           source_file_url: fileUrl,
+          source_file_path: fileStoragePath,
+          file_kind: fileKind,
+          patches,
         }),
       })
       const json = (await res.json()) as { template?: Template; error?: string }

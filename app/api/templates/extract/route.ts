@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { createClient } from '@/lib/supabase/server'
-import type { TemplateField } from '@/lib/types'
+import type { TemplateField, DocxPatch } from '@/lib/types'
 
 function readOpenrouterKey(): string | undefined {
   try {
@@ -32,71 +32,69 @@ export async function POST(request: NextRequest) {
 
   const apiKey = readOpenrouterKey()
   if (!apiKey) {
-    return NextResponse.json({ fields: [], aiUnavailable: true }, { status: 200 })
+    return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
   }
 
   const excerpt = text.slice(0, 8000)
 
-  const prompt = `Ты извлекаешь переменные поля из шаблона договора казахстанской школы/образовательного центра.
+  const prompt = `Ты обрабатываешь шаблон договора казахстанской школы/образовательного центра.
 
-ЗАДАЧА: найти ВСЕ поля, которые меняются от договора к договору — данные конкретного клиента, суммы, даты, номера.
+ЗАДАЧА: найти все места, где вставляются данные клиента/условия, и вернуть:
+(1) fields — список полей для формы
+(2) patches — список замен для docx-шаблона: уникальные подстроки в документе, которые нужно заменить на {{placeholder}}
 
-ТИПОВЫЕ ПОЛЯ В ТАКИХ ДОГОВОРАХ (ищи все, что применимо):
+ТИПОВЫЕ ПОЛЯ:
 • Номер договора, дата договора
 • Реквизиты исполнителя: название, БИН, ФИО директора, юр. адрес
-• Данные заказчика: ФИО, ИИН, номер удостоверения, кем выдан, адрес проживания, телефон, email
-• Если есть ребёнок/обучающийся: ФИО ребёнка, ИИН ребёнка, дата рождения
-• Данные родителя/законного представителя (отдельно от заказчика если упомянуто)
+• Данные заказчика: ФИО, ИИН, номер удостоверения, кем выдан, адрес, телефон, email
+• Данные ребёнка/обучающегося (если есть): ФИО, ИИН, дата рождения
 • Предмет: название курса/платформы/услуги, уровень, количество часов/занятий
-• Финансы: сумма оплаты, сумма со скидкой, размер скидки, срок оплаты, валюта
+• Финансы: сумма, размер скидки, срок оплаты, валюта
 • Срок действия: дата начала, дата окончания, количество месяцев
 
 КАК НАХОДИТЬ ПОЛЯ:
 - Явные маркеры: «___», «____», «[___]», «(____)», «{поле}», «____________»
-- Метки с двоеточием: «ФИО:», «ИИН:», «Сумма:», «Дата:»
+- Метки с двоеточием: «ФИО:», «ИИН:», «Сумма:»
 - Скобочки: «[ФИО Заказчика]», «(наименование)»
-- Упоминания данных без значения в соседней ячейке/строке таблицы
 
-ПРАВИЛА ВЫВОДА:
+ПРАВИЛА fields:
 - key: английский snake_case (student_name, parent_iin, payment_amount, contract_number)
-- label: русский, как в документе («ФИО Заказчика», не «Имя»)
+- label: русский, как в документе
 - type: "date" | "number" | "phone" | "iin" | "email" | "text"
-  - "date" для всех дат (договора, оплаты, рождения)
-  - "number" для сумм, количества часов, размера скидки
-  - "iin" для ИИН и удостоверений
-  - "phone" для телефонов, "email" для email
-  - "text" для всего остального
-- required: true если поле в договоре обязательно (обычно — все поля обязательны)
+- required: true если поле обязательно
 
-Верни ТОЛЬКО JSON-массив, БЕЗ markdown-обёртки, БЕЗ пояснений:
-[{"key":"contract_number","label":"Номер договора","type":"text","required":true}]
+ПРАВИЛА patches (КРИТИЧНО):
+- search: УНИКАЛЬНАЯ подстрока в тексте документа, достаточно длинная чтобы встречаться только один раз
+  * Включай контекст: «ФИО Заказчика: __________» а не просто «__________»
+  * Сохраняй точное количество подчёркиваний/пробелов из оригинала
+  * Не меняй кавычки или спецсимволы
+- replace: та же строка с заменой места под данные на {{key}}, где key совпадает с fields[].key
+  * Пример: search: «ФИО: __________», replace: «ФИО: {{student_name}}»
+  * ОДНА подстановка на patch — не объединяй несколько полей в один patch
+- Если поле нельзя надёжно локализовать (например в шаблоне нет уникального маркера) — добавь поле в fields, но НЕ добавляй в patches
 
-Пример для короткого фрагмента «Договор №___ от ___ г. Исполнитель: ___, БИН ___, в лице директора ___»:
-[
-  {"key":"contract_number","label":"Номер договора","type":"text","required":true},
-  {"key":"contract_date","label":"Дата договора","type":"date","required":true},
-  {"key":"executor_name","label":"Наименование Исполнителя","type":"text","required":true},
-  {"key":"executor_bin","label":"БИН Исполнителя","type":"text","required":true},
-  {"key":"executor_director","label":"ФИО директора Исполнителя","type":"text","required":true}
-]
+Верни ТОЛЬКО JSON, БЕЗ markdown-обёртки, БЕЗ пояснений:
+{
+  "fields": [{"key": "...", "label": "...", "type": "...", "required": true}],
+  "patches": [{"search": "...", "replace": "..."}]
+}
 
 ТЕКСТ ДОГОВОРА:
 ${excerpt}`
 
   // Models ordered by reliability. All free ($0 per request).
-  // On 429/502/503/504 (provider overloaded) — try next model immediately.
   const models = [
-    'google/gemma-3-12b-it:free',
     'google/gemma-3-27b-it:free',
-    'google/gemma-3-4b-it:free',
+    'google/gemma-3-12b-it:free',
     'meta-llama/llama-3.3-70b-instruct:free',
-    'google/gemma-4-26b-a4b-it:free',
+    'google/gemma-3-4b-it:free',
     'nvidia/nemotron-3-super-120b-a12b:free',
   ]
 
   const RETRY_STATUSES = new Set([429, 502, 503, 504])
 
   let fields: TemplateField[] = []
+  let patches: DocxPatch[] = []
   for (const model of models) {
     try {
       const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -111,7 +109,7 @@ ${excerpt}`
           model,
           messages: [{ role: 'user', content: prompt }],
           temperature: 0.1,
-          max_tokens: 2048,
+          max_tokens: 4096,
         }),
       })
 
@@ -131,15 +129,19 @@ ${excerpt}`
         continue
       }
 
-      fields = parseAIFields(content)
-      console.info(`[extract] success with ${model}, found ${fields.length} fields`)
-      break
+      const parsed = parseAIResponse(content)
+      if (parsed.fields.length > 0) {
+        fields = parsed.fields
+        patches = dedupePatches(validatePatches(parsed.patches, fields, excerpt))
+        console.info(`[extract] ${model} → ${fields.length} fields, ${patches.length} patches`)
+        break
+      }
     } catch (e) {
       console.warn(`[extract] ${model} threw:`, e)
     }
   }
 
-  return NextResponse.json({ fields })
+  return NextResponse.json({ fields, patches })
 }
 
 function autoFilledBy(key: string): TemplateField['filled_by'] {
@@ -149,29 +151,106 @@ function autoFilledBy(key: string): TemplateField['filled_by'] {
   return 'manager'
 }
 
-function parseAIFields(content: string): TemplateField[] {
+function parseAIResponse(content: string): { fields: TemplateField[]; patches: DocxPatch[] } {
+  const empty = { fields: [] as TemplateField[], patches: [] as DocxPatch[] }
   try {
     const clean = content.replace(/```(?:json)?/g, '').replace(/```/g, '').trim()
-    const match = clean.match(/\[[\s\S]*\]/)
-    if (!match) return []
-    const parsed = JSON.parse(match[0])
-    if (!Array.isArray(parsed)) return []
-    return parsed
-      .filter((f): f is Record<string, unknown> => typeof f === 'object' && f !== null)
-      .map((f) => {
-        const key = String(f.key ?? '').replace(/[^a-z0-9_]/gi, '_').toLowerCase()
+
+    const objMatch = clean.match(/\{[\s\S]*\}/)
+    if (objMatch) {
+      try {
+        const parsed = JSON.parse(objMatch[0])
         return {
-          key,
-          label: String(f.label ?? f.key ?? ''),
-          type: validateFieldType(f.type),
-          required: Boolean(f.required ?? true),
-          filled_by: autoFilledBy(key),
+          fields: normalizeFields(parsed.fields),
+          patches: normalizePatches(parsed.patches),
         }
-      })
-      .filter((f) => f.key.length > 0)
+      } catch {
+        // fall through to array-only parsing
+      }
+    }
+
+    // Back-compat: some models may still return a bare array of fields
+    const arrMatch = clean.match(/\[[\s\S]*\]/)
+    if (arrMatch) {
+      try {
+        const parsed = JSON.parse(arrMatch[0])
+        if (Array.isArray(parsed)) {
+          return { fields: normalizeFields(parsed), patches: [] }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return empty
   } catch {
-    return []
+    return empty
   }
+}
+
+function normalizeFields(raw: unknown): TemplateField[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((f): f is Record<string, unknown> => typeof f === 'object' && f !== null)
+    .map((f) => {
+      const key = String(f.key ?? '').replace(/[^a-z0-9_]/gi, '_').toLowerCase()
+      return {
+        key,
+        label: String(f.label ?? f.key ?? ''),
+        type: validateFieldType(f.type),
+        required: Boolean(f.required ?? true),
+        filled_by: autoFilledBy(key),
+      }
+    })
+    .filter((f) => f.key.length > 0)
+}
+
+function normalizePatches(raw: unknown): DocxPatch[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .filter((p): p is Record<string, unknown> => typeof p === 'object' && p !== null)
+    .map((p) => ({
+      search: String(p.search ?? '').trim(),
+      replace: String(p.replace ?? '').trim(),
+    }))
+    .filter((p) => p.search.length > 0 && p.replace.includes('{{'))
+}
+
+/**
+ * Drop patches whose `search` doesn't occur exactly once in the source excerpt,
+ * or whose placeholder doesn't match any known field key. The fill step can still
+ * succeed on the remaining patches; ambiguous ones fall back to pdf-lib.
+ */
+function validatePatches(patches: DocxPatch[], fields: TemplateField[], source: string): DocxPatch[] {
+  const validKeys = new Set(fields.map((f) => f.key))
+  return patches.filter((p) => {
+    const tokenMatch = p.replace.match(/\{\{\s*([a-z0-9_]+)\s*\}\}/i)
+    if (!tokenMatch || !validKeys.has(tokenMatch[1].toLowerCase())) return false
+    const occurrences = countOccurrences(source, p.search)
+    return occurrences === 1
+  })
+}
+
+function dedupePatches(patches: DocxPatch[]): DocxPatch[] {
+  const seen = new Set<string>()
+  const out: DocxPatch[] = []
+  for (const p of patches) {
+    if (seen.has(p.search)) continue
+    seen.add(p.search)
+    out.push(p)
+  }
+  return out
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0
+  let count = 0
+  let idx = 0
+  while ((idx = haystack.indexOf(needle, idx)) !== -1) {
+    count++
+    idx += needle.length
+  }
+  return count
 }
 
 function validateFieldType(t: unknown): TemplateField['type'] {

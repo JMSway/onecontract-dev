@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Upload, Loader2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { TemplateField } from '@/lib/types'
+import type { TemplateField, DocxPatch } from '@/lib/types'
 import type { EditableField } from './FieldRow'
 
 type FileKind = 'pdf' | 'docx'
@@ -11,8 +11,10 @@ type FileKind = 'pdf' | 'docx'
 export interface UploadResult {
   file: File
   fileUrl: string | null
+  fileStoragePath: string | null
   fileKind: FileKind
   fields: EditableField[]
+  patches: DocxPatch[]
   baseName: string
   aiUnavailable?: boolean
 }
@@ -92,6 +94,7 @@ export function UploadStep({ onReady }: UploadStepProps) {
 
         setLoadingMsg('Загружаем файл…')
         let fileUrl: string | null = null
+        let fileStoragePath: string | null = null
         try {
           const supabase = createClient()
           const ext = fileKind
@@ -100,6 +103,7 @@ export function UploadStep({ onReady }: UploadStepProps) {
             .from('templates')
             .upload(path, file, { contentType: file.type, upsert: false })
           if (!uploadError && uploadData) {
+            fileStoragePath = uploadData.path
             const { data: signed } = await supabase.storage
               .from('templates')
               .createSignedUrl(uploadData.path, 60 * 60)
@@ -115,10 +119,15 @@ export function UploadStep({ onReady }: UploadStepProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text }),
         })
-        const json = (await res.json()) as { fields?: TemplateField[]; error?: string }
+        const json = (await res.json()) as {
+          fields?: TemplateField[]
+          patches?: DocxPatch[]
+          error?: string
+        }
         if (!res.ok) throw new Error(json.error ?? 'Ошибка AI-анализа')
 
         const extracted: TemplateField[] = json.fields ?? []
+        const patches: DocxPatch[] = json.patches ?? []
         const editable: EditableField[] = extracted.map((f) => ({
           ...f,
           _id: crypto.randomUUID(),
@@ -127,7 +136,7 @@ export function UploadStep({ onReady }: UploadStepProps) {
         const baseName = file.name.replace(/\.(docx|pdf)$/i, '')
 
         const aiUnavailable = (json as { aiUnavailable?: boolean }).aiUnavailable ?? false
-        onReady({ file, fileUrl, fileKind, fields: editable, baseName, aiUnavailable })
+        onReady({ file, fileUrl, fileStoragePath, fileKind, fields: editable, patches, baseName, aiUnavailable })
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Ошибка при обработке файла')
         setLoading(false)
