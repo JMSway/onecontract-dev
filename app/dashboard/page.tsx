@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FileText, CheckCircle2, Clock, Wallet, AlertCircle, Loader2, Building2 } from 'lucide-react'
+import { FileText, CheckCircle2, Clock, Wallet, AlertCircle, Loader2, Building2, Check, X } from 'lucide-react'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { QuickActions } from '@/components/dashboard/QuickActions'
 import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist'
@@ -102,6 +102,76 @@ function OrgSetupForm({ onDone }: { onDone: (orgId: string, orgName: string) => 
           </form>
         </div>
       </div>
+    </div>
+  )
+}
+
+function PendingApprovalsSection({
+  contracts,
+  onUpdate,
+}: {
+  contracts: Contract[]
+  onUpdate: (id: string) => void
+}) {
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function handle(id: string, action: 'approve' | 'reject') {
+    setBusy(id)
+    const res = await fetch(`/api/contracts/${id}/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: action === 'reject' ? JSON.stringify({ reason: '' }) : undefined,
+    })
+    setBusy(null)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error ?? 'Ошибка')
+      return
+    }
+    onUpdate(id)
+  }
+
+  return (
+    <div className="bg-amber-50/50 border border-amber-200 rounded-2xl shadow-sm overflow-hidden animate-fade-in-up">
+      <div className="px-5 py-3 border-b border-amber-200 flex items-center gap-2">
+        <Clock size={16} strokeWidth={1.5} className="text-amber-700" />
+        <h2 className="text-sm font-semibold text-amber-900 tracking-tight">
+          Ожидают вашего подтверждения ({contracts.length})
+        </h2>
+      </div>
+      <ul className="divide-y divide-amber-100">
+        {contracts.map((c) => {
+          const amount = typeof c.data?.amount === 'number' ? c.data.amount : Number(c.data?.amount ?? 0)
+          return (
+            <li key={c.id} className="px-5 py-3 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-dark truncate">
+                  {c.recipient_name ?? '—'}
+                </p>
+                <p className="text-xs text-muted truncate">
+                  № {c.id.slice(0, 8).toUpperCase()} · {formatTenge(Number.isFinite(amount) ? amount : 0)}
+                </p>
+              </div>
+              <button
+                onClick={() => handle(c.id, 'approve')}
+                disabled={busy === c.id}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-success/10 text-success border border-success/30 rounded-lg text-xs font-medium hover:bg-success/20 disabled:opacity-50 transition-colors"
+              >
+                {busy === c.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} strokeWidth={1.5} />}
+                Подтвердить
+              </button>
+              <button
+                onClick={() => handle(c.id, 'reject')}
+                disabled={busy === c.id}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+              >
+                <X size={12} strokeWidth={1.5} />
+                Отклонить
+              </button>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
@@ -235,6 +305,13 @@ export default function DashboardOverviewPage() {
       )}
 
       <QuickActions />
+
+      {user.role === 'owner' && contracts.some((c) => c.status === 'pending_approval') && (
+        <PendingApprovalsSection
+          contracts={contracts.filter((c) => c.status === 'pending_approval')}
+          onUpdate={(id) => setContracts((prev) => prev.filter((c) => c.id !== id))}
+        />
+      )}
 
       <OnboardingChecklist steps={onboardingSteps} />
 

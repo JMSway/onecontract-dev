@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createHash } from 'crypto'
+import { createHash, createHmac } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
@@ -29,11 +29,21 @@ export async function POST(
 
   const { data: sig } = await supabase
     .from('signatures')
-    .select('id, otp_code, signer_ua, otp_verified_at')
+    .select('id, otp_code, signer_ua, otp_verified_at, otp_attempts')
     .eq('contract_id', contractId)
     .maybeSingle()
 
-  if (!sig) return NextResponse.json({ success: false, error: 'Код не найден. Запросите новый.' })
+  if (!sig || !sig.otp_code) {
+    return NextResponse.json({ success: false, error: 'Код не найден. Запросите новый.' })
+  }
+
+  if ((sig.otp_attempts ?? 0) >= 5) {
+    await supabase.from('signatures').update({ otp_code: null }).eq('id', sig.id)
+    return NextResponse.json(
+      { success: false, error: 'Превышено количество попыток. Запросите новый код.' },
+      { status: 429 }
+    )
+  }
 
   // signer_ua stores expiry ISO string temporarily
   const expiresAt = sig.signer_ua ? new Date(sig.signer_ua).getTime() : 0
@@ -43,12 +53,20 @@ export async function POST(
 
   const inputHash = createHash('sha256').update(body.code).digest('hex')
   if (inputHash !== sig.otp_code) {
+    await supabase
+      .from('signatures')
+      .update({ otp_attempts: (sig.otp_attempts ?? 0) + 1 })
+      .eq('id', sig.id)
     return NextResponse.json({ success: false, error: 'Неверный код. Проверьте и попробуйте снова.' })
   }
 
   const now = new Date().toISOString()
 
-  // Generate seal hash
+  // Generate seal hash (HMAC-SHA256 with server secret)
+  const secret = process.env.SEAL_SECRET
+  if (!secret) {
+    return NextResponse.json({ error: 'Server misconfigured (SEAL_SECRET)' }, { status: 500 })
+  }
   const sealData = JSON.stringify({
     contractId,
     signedAt: now,
@@ -56,7 +74,7 @@ export async function POST(
     method: 'sms_otp',
     templateId: contract.template_id,
   })
-  const sealHash = createHash('sha256').update(sealData).digest('hex')
+  const sealHash = createHmac('sha256', secret).update(sealData).digest('hex')
 
   const signerIp =
     request.headers.get('cf-connecting-ip') ??

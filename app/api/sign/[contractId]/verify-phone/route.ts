@@ -26,12 +26,42 @@ export async function POST(
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Normalize: strip spaces/dashes for comparison
+  const { data: existing } = await supabase
+    .from('signatures')
+    .select('id, phone_attempts')
+    .eq('contract_id', contractId)
+    .maybeSingle()
+
+  const attempts = existing?.phone_attempts ?? 0
+  if (attempts >= 5) {
+    return NextResponse.json(
+      { match: false, error: 'Превышено количество попыток. Попробуйте позже.' },
+      { status: 429 }
+    )
+  }
+
   const normalize = (p: string) => p.replace(/[\s\-()]/g, '')
   const match = normalize(body.phone) === normalize(contract.recipient_phone ?? '')
 
   if (!match) {
+    if (existing) {
+      await supabase
+        .from('signatures')
+        .update({ phone_attempts: attempts + 1 })
+        .eq('id', existing.id)
+    } else {
+      await supabase.from('signatures').insert({
+        contract_id: contractId,
+        method: 'sms_otp',
+        phone_attempts: 1,
+        created_at: new Date().toISOString(),
+      })
+    }
     return NextResponse.json({ match: false, error: 'Номер не совпадает с указанным в договоре' })
+  }
+
+  if (existing && existing.phone_attempts > 0) {
+    await supabase.from('signatures').update({ phone_attempts: 0 }).eq('id', existing.id)
   }
   return NextResponse.json({ match: true })
 }
