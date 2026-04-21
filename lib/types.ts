@@ -39,6 +39,7 @@ export interface TemplateField {
   label: string
   type: 'text' | 'number' | 'date' | 'iin' | 'phone' | 'email'
   required: boolean
+  filled_by?: 'manager' | 'client'
 }
 
 export interface Template {

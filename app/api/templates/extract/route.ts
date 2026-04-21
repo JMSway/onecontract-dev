@@ -142,6 +142,13 @@ ${excerpt}`
   return NextResponse.json({ fields })
 }
 
+function autoFilledBy(key: string): TemplateField['filled_by'] {
+  const clientKeys = ['iin', 'address', 'document', 'passport', 'issued', 'resident', 'phone', 'email', 'mobile']
+  const lower = key.toLowerCase()
+  if (clientKeys.some((k) => lower.includes(k))) return 'client'
+  return 'manager'
+}
+
 function parseAIFields(content: string): TemplateField[] {
   try {
     const clean = content.replace(/```(?:json)?/g, '').replace(/```/g, '').trim()
@@ -151,12 +158,16 @@ function parseAIFields(content: string): TemplateField[] {
     if (!Array.isArray(parsed)) return []
     return parsed
       .filter((f): f is Record<string, unknown> => typeof f === 'object' && f !== null)
-      .map((f) => ({
-        key: String(f.key ?? '').replace(/[^a-z0-9_]/gi, '_').toLowerCase(),
-        label: String(f.label ?? f.key ?? ''),
-        type: validateFieldType(f.type),
-        required: Boolean(f.required ?? true),
-      }))
+      .map((f) => {
+        const key = String(f.key ?? '').replace(/[^a-z0-9_]/gi, '_').toLowerCase()
+        return {
+          key,
+          label: String(f.label ?? f.key ?? ''),
+          type: validateFieldType(f.type),
+          required: Boolean(f.required ?? true),
+          filled_by: autoFilledBy(key),
+        }
+      })
       .filter((f) => f.key.length > 0)
   } catch {
     return []

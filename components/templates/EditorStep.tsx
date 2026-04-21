@@ -2,6 +2,7 @@
 
 import { FieldsEditor } from './FieldsEditor'
 import { DocumentPreview } from './DocumentPreview'
+import { FieldMappingPanel } from './FieldMappingPanel'
 import type { EditableField } from './FieldRow'
 
 interface EditorStepProps {
@@ -24,15 +25,16 @@ interface EditorStepProps {
 }
 
 export function EditorStep(props: EditorStepProps) {
-  const { file, fileUrl, fileKind, ...editorProps } = props
+  const { file, fileUrl, fileKind, fields, ...editorProps } = props
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 lg:gap-6">
       <div className="order-1 lg:order-1">
-        <FieldsEditor {...editorProps} />
+        <FieldsEditor fields={fields} {...editorProps} />
       </div>
       <div className="order-2 lg:order-2 lg:sticky lg:top-4 lg:self-start">
         <DocumentPreview file={file} fileUrl={fileUrl} fileKind={fileKind} />
+        <FieldMappingPanel fields={fields} />
       </div>
     </div>
   )

@@ -48,7 +48,7 @@ export default function NewTemplatePage() {
   const addField = () =>
     setFields((prev) => [
       ...prev,
-      { _id: crypto.randomUUID(), key: '', label: '', type: 'text', required: true },
+      { _id: crypto.randomUUID(), key: '', label: '', type: 'text', required: true, filled_by: 'manager' },
     ])
 
   const handleCancel = () => {

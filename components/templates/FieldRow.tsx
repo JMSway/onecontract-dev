@@ -1,6 +1,6 @@
 'use client'
 
-import { ChevronDown, Calendar, Trash2 } from 'lucide-react'
+import { ChevronDown, Calendar, Trash2, User, Briefcase } from 'lucide-react'
 import type { TemplateField } from '@/lib/types'
 
 export interface EditableField extends TemplateField {
@@ -23,6 +23,8 @@ interface FieldRowProps {
 }
 
 export function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
+  const isClient = field.filled_by === 'client'
+
   return (
     <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 group transition-all duration-150 hover:bg-[#D6E6F3]/30">
       <div className="flex-1 min-w-0">
@@ -36,6 +38,11 @@ export function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
         {field.type === 'date' && (
           <span className="flex items-center gap-1 text-[10px] text-[#0F7B55] mt-0.5">
             <Calendar size={10} /> автозаполняется при отправке
+          </span>
+        )}
+        {isClient && (
+          <span className="flex items-center gap-1 text-[10px] text-[#0F7B55] mt-0.5">
+            <User size={10} /> заполняет клиент
           </span>
         )}
       </div>
@@ -60,6 +67,18 @@ export function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
         }`}
       >
         *
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange({ filled_by: isClient ? 'manager' : 'client' })}
+        title={isClient ? 'Заполняет клиент' : 'Заполняет менеджер'}
+        className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-colors duration-150 ${
+          isClient
+            ? 'bg-[#0F7B55]/10 text-[#0F7B55]'
+            : 'bg-gray-100 text-[#6B7E92] hover:bg-gray-200'
+        }`}
+      >
+        {isClient ? <User size={11} strokeWidth={1.5} /> : <Briefcase size={11} strokeWidth={1.5} />}
       </button>
       <button
         type="button"

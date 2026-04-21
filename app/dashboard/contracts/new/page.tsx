@@ -19,7 +19,7 @@ import type { Template, TemplateField } from '@/lib/types'
 
 const STEPS = [
   { id: 1, label: 'Шаблон', icon: LayoutTemplate },
-  { id: 2, label: 'Данные клиента', icon: User },
+  { id: 2, label: 'Данные договора', icon: User },
   { id: 3, label: 'Способ отправки', icon: Send },
   { id: 4, label: 'Превью', icon: FileCheck },
 ]
@@ -77,7 +77,7 @@ export default function NewContractWizardPage() {
     if (step === 2) {
       if (!state.template) return false
       return state.template.fields
-        .filter((f) => f.required)
+        .filter((f) => f.required && (f.filled_by ?? 'manager') === 'manager')
         .every((f) => (state.fieldValues[f.key] ?? '').trim() !== '')
     }
     if (step === 3) {
@@ -240,34 +240,55 @@ export default function NewContractWizardPage() {
           {step === 2 && state.template && (
             <div>
               <h2 className="text-lg font-semibold text-text-dark mb-1 tracking-tight">
-                Данные клиента
+                Данные договора
               </h2>
               <p className="text-sm text-muted mb-6">
                 Шаблон:{' '}
                 <span className="font-medium text-text-dark">{state.template.name}</span>
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {state.template.fields.map((field) => (
-                  <div key={field.key}>
-                    <label className="block text-xs font-semibold text-text-dark mb-1.5">
-                      {field.label}
-                      {field.required && <span className="text-danger ml-1">*</span>}
-                    </label>
-                    <input
-                      type={inputType(field.type)}
-                      value={state.fieldValues[field.key] ?? ''}
-                      onChange={(e) =>
-                        setState((s) => ({
-                          ...s,
-                          fieldValues: { ...s.fieldValues, [field.key]: e.target.value },
-                        }))
-                      }
-                      placeholder={field.label}
-                      className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
-                    />
-                  </div>
-                ))}
-              </div>
+              {(() => {
+                const managerFields = state.template.fields.filter(
+                  (f) => (f.filled_by ?? 'manager') === 'manager'
+                )
+                const clientFields = state.template.fields.filter(
+                  (f) => f.filled_by === 'client'
+                )
+                const clientCount = clientFields.length
+                const clientPlural =
+                  clientCount === 1 ? 'поле' : clientCount < 5 ? 'поля' : 'полей'
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {managerFields.map((field) => (
+                        <div key={field.key}>
+                          <label className="block text-xs font-semibold text-text-dark mb-1.5">
+                            {field.label}
+                            {field.required && <span className="text-danger ml-1">*</span>}
+                          </label>
+                          <input
+                            type={inputType(field.type)}
+                            value={state.fieldValues[field.key] ?? ''}
+                            onChange={(e) =>
+                              setState((s) => ({
+                                ...s,
+                                fieldValues: { ...s.fieldValues, [field.key]: e.target.value },
+                              }))
+                            }
+                            placeholder={field.label}
+                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {clientCount > 0 && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-ice text-xs text-muted flex items-center gap-2">
+                        <User size={14} className="shrink-0 text-success" strokeWidth={1.5} />
+                        {clientCount} {clientPlural} будут заполнены получателем при подписании
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
 

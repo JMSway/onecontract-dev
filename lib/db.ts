@@ -50,7 +50,7 @@ export function getContracts(orgId: string): Promise<Contract[]> {
   return cached(`contracts:${orgId}`, 60, () => _getContracts(orgId))
 }
 
-export async function getTemplates(orgId: string): Promise<Template[]> {
+async function _getTemplates(orgId: string): Promise<Template[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('templates')
@@ -60,6 +60,14 @@ export async function getTemplates(orgId: string): Promise<Template[]> {
 
   if (error) throw error
   return (data ?? []) as Template[]
+}
+
+export function getTemplates(orgId: string): Promise<Template[]> {
+  return cached(`templates:${orgId}`, 30, () => _getTemplates(orgId))
+}
+
+export function invalidateTemplatesCache(orgId: string): void {
+  _cache.delete(`templates:${orgId}`)
 }
 
 async function _getDashboardStats(orgId: string): Promise<DashboardStats> {

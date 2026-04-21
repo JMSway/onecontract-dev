@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Upload, FileText, Plus, Trash2, Loader2 } from 'lucide-react'
+import { Upload, FileText, Plus, Trash2, Loader2, Pencil } from 'lucide-react'
 import type { Template } from '@/lib/types'
 
 function formatDate(iso: string) {
@@ -53,18 +53,27 @@ function TemplateCard({ template, onDelete }: TemplateCardProps) {
           <p className="text-xs text-[#6B7E92] mt-0.5 truncate">{template.description}</p>
         )}
       </div>
-      <button
-        onClick={handleDelete}
-        disabled={deleting}
-        className="shrink-0 p-2 rounded-xl text-[#6B7E92] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-        title="Удалить шаблон"
-      >
-        {deleting ? (
-          <Loader2 size={16} className="animate-spin" />
-        ) : (
-          <Trash2 size={16} strokeWidth={1.5} />
-        )}
-      </button>
+      <div className="flex items-center gap-1 shrink-0">
+        <Link
+          href={`/dashboard/templates/${template.id}/edit`}
+          className="p-2 rounded-xl text-[#6B7E92] hover:text-[#0F52BA] hover:bg-[#D6E6F3]/50 transition-colors"
+          title="Редактировать шаблон"
+        >
+          <Pencil size={16} strokeWidth={1.5} />
+        </Link>
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          className="p-2 rounded-xl text-[#6B7E92] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+          title="Удалить шаблон"
+        >
+          {deleting ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Trash2 size={16} strokeWidth={1.5} />
+          )}
+        </button>
+      </div>
     </div>
   )
 }
