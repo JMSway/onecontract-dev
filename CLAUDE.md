@@ -1,5 +1,14 @@
 # OneContract
 
+## Deployment
+Two repositories:
+- **onecontract-dev** (this repo): development, has CLAUDE.md and AI tooling
+- **onecontract** (production): clean code, no AI markers, connected to domain
+
+To deploy to production run: ./scripts/deploy-production.sh
+This script: copies project → removes CLAUDE.md, AGENTS.md → strips AI comments → pushes to onecontract repo with human author.
+NEVER push CLAUDE.md or AGENTS.md to production repo.
+
 Electronic contract platform for educational centers in Kazakhstan.
 Language schools as anchor segment → IT courses & online schools in wave 2.
 

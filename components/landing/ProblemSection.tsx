@@ -42,10 +42,10 @@ export function ProblemSection() {
           </p>
         </FadeIn>
 
-        <div className="grid md:grid-cols-3 gap-6">
+        <div className="flex md:grid md:grid-cols-3 gap-6 overflow-x-auto md:overflow-visible snap-x snap-mandatory pb-6 md:pb-0 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
           {pains.map(({ Icon, title, quote, loss, lossLabel, detail }, i) => (
-            <FadeIn key={title} delay={i * 0.12}>
-              <div className="bg-white border border-ice rounded-2xl p-6 shadow-sm flex flex-col h-full group hover:border-powder/60 transition-colors">
+            <FadeIn key={title} delay={i * 0.12} className="min-w-[85vw] sm:min-w-[340px] md:min-w-0 snap-center flex-shrink-0 md:flex-shrink h-auto flex flex-col">
+              <div className="bg-white border border-ice rounded-2xl p-6 shadow-sm flex flex-col h-full group transition-all duration-300 hover:border-powder/60 hover:-translate-y-1 hover:shadow-md">
                 {/* Icon */}
                 <div className="w-12 h-12 bg-danger/8 rounded-xl flex items-center justify-center mb-5">
                   <Icon size={24} strokeWidth={1.5} className="text-danger" />

@@ -66,10 +66,10 @@ export function PricingSection() {
         <div className="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
           {plans.map((plan, i) => (
             <FadeIn key={plan.id} delay={i * 0.12}>
-              <div className={`relative rounded-2xl p-6 sm:p-8 flex flex-col h-full ${
+              <div className={`relative rounded-2xl p-6 sm:p-8 flex flex-col h-full transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl ${
                 plan.highlighted
-                  ? 'bg-navy border-2 border-sapphire/40 ring-4 ring-sapphire/10'
-                  : 'bg-white border-2 border-ice'
+                  ? 'bg-navy border-2 border-sapphire/40 ring-4 ring-sapphire/10 shadow-[0_20px_60px_-15px_rgba(15,82,186,0.5)]'
+                  : 'bg-white border-2 border-ice hover:border-powder/50 hover:shadow-powder/20'
               }`}>
                 {plan.badge && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
