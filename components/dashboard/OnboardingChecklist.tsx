@@ -1,6 +1,3 @@
-'use client'
-
-import { motion } from 'framer-motion'
 import { Check, Circle } from 'lucide-react'
 import type { OnboardingStep } from '@/lib/dashboard/types'
 
@@ -9,12 +6,7 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
   const progress = Math.round((doneCount / steps.length) * 100)
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: 0.3 }}
-      className="bg-white border border-ice rounded-2xl p-6 shadow-sm"
-    >
+    <div className="bg-white border border-ice rounded-2xl p-6 shadow-sm animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
       <div className="flex items-start justify-between mb-5">
         <div>
           <h3 className="text-base font-semibold text-text-dark tracking-tight mb-1">
@@ -28,11 +20,9 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
       </div>
 
       <div className="h-1.5 rounded-full bg-ice mb-5 overflow-hidden">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="h-full bg-sapphire rounded-full"
+        <div
+          className="h-full bg-sapphire rounded-full transition-[width] duration-500"
+          style={{ width: `${progress}%` }}
         />
       </div>
 
@@ -56,6 +46,6 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
           </li>
         ))}
       </ul>
-    </motion.div>
+    </div>
   )
 }

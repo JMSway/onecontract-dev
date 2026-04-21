@@ -1,6 +1,5 @@
 'use client'
 
-import { motion } from 'framer-motion'
 import { FileText, CheckCircle2, Clock, Wallet } from 'lucide-react'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { QuickActions } from '@/components/dashboard/QuickActions'
@@ -29,16 +28,12 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-6">
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
+      <div className="animate-fade-in-up">
         <h1 className="text-2xl sm:text-3xl font-bold text-text-dark tracking-tight mb-1">
           {greeting}, {user.name}!
         </h1>
         <p className="text-sm text-muted">{subtitle}</p>
-      </motion.div>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
@@ -79,11 +74,9 @@ export default function DashboardOverviewPage() {
 
       <OnboardingChecklist steps={mockOnboarding} />
 
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-        className="bg-white border border-ice rounded-2xl shadow-sm overflow-hidden"
+      <div
+        className="bg-white border border-ice rounded-2xl shadow-sm overflow-hidden animate-fade-in-up"
+        style={{ animationDelay: '0.4s' }}
       >
         <div className="px-5 py-4 border-b border-ice flex items-center justify-between">
           <h2 className="text-base font-semibold text-text-dark tracking-tight">
@@ -104,7 +97,7 @@ export default function DashboardOverviewPage() {
             ))}
           </div>
         )}
-      </motion.div>
+      </div>
     </div>
   )
 }

@@ -1,6 +1,3 @@
-'use client'
-
-import { motion } from 'framer-motion'
 import { ArrowUp, ArrowDown, type LucideIcon } from 'lucide-react'
 
 interface StatCardProps {
@@ -17,11 +14,9 @@ export function StatCard({ icon: Icon, label, value, delta, deltaLabel, delay = 
   const hasDelta = typeof delta === 'number' && delta !== 0
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay }}
-      className="bg-white border border-ice rounded-2xl p-5 shadow-sm"
+    <div
+      className="bg-white border border-ice rounded-2xl p-5 shadow-sm animate-fade-in-up"
+      style={{ animationDelay: `${delay}s` }}
     >
       <div className="flex items-start justify-between mb-4">
         <div className="w-9 h-9 rounded-lg bg-ice flex items-center justify-center">
@@ -45,6 +40,6 @@ export function StatCard({ icon: Icon, label, value, delta, deltaLabel, delay = 
       </div>
       <p className="text-3xl font-bold text-text-dark tracking-tight mb-1 tabular-nums">{value}</p>
       <p className="text-xs text-muted">{label}</p>
-    </motion.div>
+    </div>
   )
 }
