@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function GET(
   _request: NextRequest,
@@ -45,7 +46,8 @@ export async function GET(
     const rawPath = parts.length > 1 ? parts[parts.length - 1].split('?')[0] : null
     const path = rawPath ? decodeURIComponent(rawPath) : null
     if (path) {
-      const { data: fresh, error: signErr } = await supabase.storage
+      const serviceSupabase = createServiceClient()
+      const { data: fresh, error: signErr } = await serviceSupabase.storage
         .from('templates')
         .createSignedUrl(path, 60 * 60)
       sourceFileUrl = fresh?.signedUrl ?? null

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { generateAndStorePdf } from '@/lib/sign-pdf'
 
 export async function POST(
@@ -26,7 +27,8 @@ export async function POST(
     .eq('contract_id', contractId)
     .maybeSingle()
 
-  const result = await generateAndStorePdf(supabase, contract, {
+  const serviceSupabase = createServiceClient()
+  const result = await generateAndStorePdf(serviceSupabase, contract, {
     contractId,
     signerPhone: contract.recipient_phone ?? '',
     signerIp: sigRes?.signer_ip ?? null,
