@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, Loader2 } from 'lucide-react'
+import { BoxLoader } from '@/components/ui/BoxLoader'
 import dynamic from 'next/dynamic'
 import { FieldsEditor } from '@/components/templates/FieldsEditor'
 import { FieldMappingPanel } from '@/components/templates/FieldMappingPanel'
@@ -100,7 +101,7 @@ export default function EditTemplatePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={32} className="text-[#0F52BA] animate-spin" strokeWidth={1.5} />
+        <BoxLoader />
       </div>
     )
   }

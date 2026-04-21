@@ -7,6 +7,7 @@ import {
   FileText, CheckCircle2, Loader2, Download,
   Lock, Shield, Share2, X, ChevronRight,
 } from 'lucide-react'
+import { BoxLoader } from '@/components/ui/BoxLoader'
 import type { TemplateField } from '@/lib/types'
 
 const DocumentPreview = dynamic(
@@ -193,7 +194,7 @@ export default function SignPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <Loader2 size={32} className="text-[#0F52BA] animate-spin" />
+        <BoxLoader />
       </div>
     )
   }

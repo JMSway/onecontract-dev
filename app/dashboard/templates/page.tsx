@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Upload, FileText, Plus, Trash2, Loader2, Pencil } from 'lucide-react'
+import { BoxLoader } from '@/components/ui/BoxLoader'
 import type { Template } from '@/lib/types'
 
 function formatDate(iso: string) {
@@ -130,7 +131,7 @@ export default function TemplatesPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="text-[#0F52BA] animate-spin" />
+          <BoxLoader />
         </div>
       ) : templates.length === 0 ? (
         <EmptyTemplates />

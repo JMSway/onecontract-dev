@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, XCircle, FileText, Loader2, Shield, Download, Share2 } from 'lucide-react'
+import { CheckCircle2, XCircle, FileText, Shield, Download, Share2 } from 'lucide-react'
+import { BoxLoader } from '@/components/ui/BoxLoader'
 
 type VerifyData = {
   id: string
@@ -93,7 +94,7 @@ export default function VerifyPage() {
       <div className="flex-1 px-4 py-8 max-w-md mx-auto w-full">
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <Loader2 size={32} className="text-[#0F52BA] animate-spin" />
+            <BoxLoader />
           </div>
         )}
 
