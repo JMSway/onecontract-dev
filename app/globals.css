@@ -101,3 +101,8 @@ body {
 .page-enter {
   animation: page-enter 0.2s ease-out;
 }
+
+@keyframes successPop {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

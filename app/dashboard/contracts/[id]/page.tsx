@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageSquare, Mail } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Mail, Copy, Check } from 'lucide-react'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import type { ContractStatus } from '@/lib/dashboard/types'
 import type { TemplateField } from '@/lib/types'
@@ -37,6 +37,7 @@ export default function ContractDetailPage() {
   const [contract, setContract] = useState<ContractDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     fetch(`/api/contracts/${id}`)
@@ -51,6 +52,20 @@ export default function ContractDetailPage() {
 
   const title = contract?.templates?.name ?? 'Договор'
   const ChannelIcon = contract?.sent_via === 'sms' ? MessageSquare : Mail
+
+  const signingUrl =
+    typeof window !== 'undefined' && contract
+      ? `${window.location.origin}/sign/${contract.id}`
+      : contract ? `/sign/${contract.id}` : ''
+
+  const handleCopyLink = async () => {
+    if (!contract) return
+    const orgName = 'OneContract'
+    const text = `${orgName} отправил вам договор на подписание.\nПодпишите по ссылке: ${signingUrl}`
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -150,17 +165,36 @@ export default function ContractDetailPage() {
 
           {/* Signing link */}
           <div className="bg-ice/60 border border-ice rounded-2xl p-5">
-            <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-muted mb-2">
               Ссылка для подписания
             </p>
-            <p className="text-sm font-medium text-text-dark break-all">
-              {typeof window !== 'undefined'
-                ? `${window.location.origin}/sign/${contract.id}`
-                : `/sign/${contract.id}`}
-            </p>
-            <p className="text-xs text-muted mt-1">
-              Страница подписания появится в следующем обновлении
-            </p>
+            <p className="text-sm text-muted break-all mb-4">{signingUrl}</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button
+                onClick={handleCopyLink}
+                className="flex-1 h-11 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+              >
+                {copied ? (
+                  <><Check size={16} strokeWidth={2} /> Скопировано</>
+                ) : (
+                  <><Copy size={16} strokeWidth={1.5} /> Копировать ссылку</>
+                )}
+              </button>
+              <button
+                disabled
+                title="Скоро"
+                className="flex-1 h-11 border border-[#A6C5D7] text-[#6B7E92] rounded-xl text-sm font-semibold flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+              >
+                <MessageSquare size={16} strokeWidth={1.5} /> Отправить SMS
+              </button>
+              <button
+                disabled
+                title="Скоро"
+                className="flex-1 h-11 border border-[#A6C5D7] text-[#6B7E92] rounded-xl text-sm font-semibold flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+              >
+                <Mail size={16} strokeWidth={1.5} /> Отправить Email
+              </button>
+            </div>
           </div>
         </>
       )}
