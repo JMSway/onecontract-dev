@@ -142,10 +142,12 @@ export async function generateAndStorePdf(
   contract: ContractLike,
   meta: SignedPdfMetadata,
 ): Promise<GenerationResult> {
+  // `select('*')` keeps this working even before migration 005 is applied
+  // (template_docx_url column missing) — docx path is simply skipped in that case.
   const [templateRes, orgRes] = await Promise.all([
     supabase
       .from('templates')
-      .select('name, fields, template_docx_url')
+      .select('*')
       .eq('id', contract.template_id)
       .maybeSingle(),
     supabase.from('organizations').select('name').eq('id', contract.org_id).maybeSingle(),

@@ -108,12 +108,19 @@ export async function POST(request: NextRequest) {
           })
         if (upErr) throw new Error(upErr.message)
 
-        templateDocxUrl = normalizedPath
-
-        await supabase
+        const { error: updateErr } = await supabase
           .from('templates')
-          .update({ template_docx_url: templateDocxUrl })
+          .update({ template_docx_url: normalizedPath })
           .eq('id', inserted.id)
+
+        // If migration 005 isn't applied yet, the column doesn't exist and the
+        // update fails. That's survivable — template is already created, and
+        // the sign flow falls back to pdf-lib when template_docx_url is null.
+        if (updateErr) {
+          console.warn('[templates] could not persist template_docx_url (migration 005?):', updateErr.message)
+        } else {
+          templateDocxUrl = normalizedPath
+        }
       }
     } catch (err) {
       console.warn('[templates] normalization failed (non-fatal):', err)
