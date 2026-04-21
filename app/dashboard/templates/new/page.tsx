@@ -4,9 +4,18 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
-import { UploadStep, type UploadResult } from '@/components/templates/UploadStep'
-import { EditorStep } from '@/components/templates/EditorStep'
+import dynamic from 'next/dynamic'
+import type { UploadResult } from '@/components/templates/UploadStep'
 import type { EditableField } from '@/components/templates/FieldRow'
+
+const UploadStep = dynamic(
+  () => import('@/components/templates/UploadStep').then(m => ({ default: m.UploadStep })),
+  { ssr: false },
+)
+const EditorStep = dynamic(
+  () => import('@/components/templates/EditorStep').then(m => ({ default: m.EditorStep })),
+  { ssr: false },
+)
 import type { DocxPatch, Template, TemplateField } from '@/lib/types'
 
 type Step = 'upload' | 'edit'

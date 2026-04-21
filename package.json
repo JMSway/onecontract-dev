@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check:cf": "opennextjs-cloudflare build && echo '--- gzipped handler size:' && gzip -c .open-next/server-functions/default/handler.mjs | wc -c | awk '{printf \"%.2f MiB (limit 3 MiB free / 10 MiB paid)\\n\", $1/1048576}'"
+    "check:cf": "opennextjs-cloudflare build && npx wrangler deploy --dry-run --outdir /tmp/cf-check-out 2>/dev/null; echo '--- wrangler bundle (gzipped):' && gzip -c /tmp/cf-check-out/worker.js | wc -c | awk '{printf \"%.2f MiB (limit 3 MiB free / 10 MiB paid)\\n\", $1/1048576}'"
   },
   "dependencies": {
     "@fontsource/noto-sans": "^5.2.10",

@@ -4,9 +4,14 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, AlertTriangle, Loader2 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { FieldsEditor } from '@/components/templates/FieldsEditor'
-import { DocumentPreview } from '@/components/templates/DocumentPreview'
 import { FieldMappingPanel } from '@/components/templates/FieldMappingPanel'
+
+const DocumentPreview = dynamic(
+  () => import('@/components/templates/DocumentPreview').then(m => ({ default: m.DocumentPreview })),
+  { ssr: false },
+)
 import type { EditableField } from '@/components/templates/FieldRow'
 import type { Template, TemplateField } from '@/lib/types'
 
