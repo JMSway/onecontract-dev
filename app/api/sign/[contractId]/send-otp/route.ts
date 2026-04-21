@@ -11,7 +11,7 @@ export async function POST(
 
   const { data: contract } = await supabase
     .from('contracts')
-    .select('id, status')
+    .select('id, status, recipient_phone')
     .eq('id', contractId)
     .maybeSingle()
 
@@ -23,6 +23,31 @@ export async function POST(
   const code = Math.floor(100000 + Math.random() * 900000).toString()
   const codeHash = createHash('sha256').update(code).digest('hex')
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
+
+  if (process.env.NODE_ENV === 'development') console.log('OTP:', code)
+
+  // Send SMS via Mobizon
+  const recipient = (contract.recipient_phone ?? '').replace(/^\+/, '')
+  const apiKey = process.env.MOBIZON_API_KEY
+  if (!apiKey) return NextResponse.json({ error: 'SMS не настроен' }, { status: 500 })
+
+  const smsRes = await fetch(
+    `https://api.mobizon.kz/service/message/sendSmsMessage?output=json&apiKey=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        recipient,
+        text: `OneContract: код подписания ${code}. Не сообщайте никому.`,
+      }),
+    }
+  )
+
+  const smsData = await smsRes.json().catch(() => null)
+  if (!smsData || smsData.code !== 0) {
+    const msg = smsData?.message ?? 'Ошибка отправки SMS'
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 
   await supabase.from('signatures').delete().eq('contract_id', contractId)
 
@@ -36,6 +61,5 @@ export async function POST(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // TODO: replace testCode with Mobizon SMS before production
-  return NextResponse.json({ success: true, testCode: code })
+  return NextResponse.json({ success: true })
 }

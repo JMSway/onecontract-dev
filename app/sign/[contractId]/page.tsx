@@ -51,7 +51,7 @@ export default function SignPage() {
   const [otpError, setOtpError] = useState<string | null>(null)
   const [sendingOtp, setSendingOtp] = useState(false)
   const [verifyingOtp, setVerifyingOtp] = useState(false)
-  const [testCode, setTestCode] = useState<string | null>(null)
+
   const [countdown, setCountdown] = useState(59)
   const [canResend, setCanResend] = useState(false)
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
@@ -182,7 +182,7 @@ export default function SignPage() {
       setOtpError(null)
       const r = await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
       const d = await r.json()
-      if (d.testCode) setTestCode(d.testCode)
+      void d
     }
 
     return (
@@ -194,11 +194,6 @@ export default function SignPage() {
             Код отправлен на {contract.recipient_phone_masked ?? 'ваш номер'}
           </p>
 
-          {testCode && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-amber-700 mb-4">
-              Тестовый режим — ваш код: <span className="font-bold font-mono">{testCode}</span>
-            </div>
-          )}
 
           <div className="flex gap-2 justify-center mb-6">
             {otpDigits.map((d, i) => (
@@ -258,7 +253,6 @@ export default function SignPage() {
           setSendingOtp(true)
           const r2 = await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
           const d2 = await r2.json()
-          if (d2.code) setTestCode(d2.code)
           setStep('otp')
         } else {
           setPhoneError(d.error ?? 'Номер не совпадает')
