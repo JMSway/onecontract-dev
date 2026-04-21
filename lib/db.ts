@@ -6,6 +6,17 @@ import type {
   Template,
 } from './types'
 
+const _cache = new Map<string, { data: unknown; exp: number }>()
+
+function cached<T>(key: string, ttl: number, fn: () => Promise<T>): Promise<T> {
+  const hit = _cache.get(key)
+  if (hit && Date.now() < hit.exp) return Promise.resolve(hit.data as T)
+  return fn().then((data) => {
+    _cache.set(key, { data, exp: Date.now() + ttl * 1000 })
+    return data
+  })
+}
+
 export async function getCurrentUser(): Promise<CurrentUserWithOrg | null> {
   const supabase = createClient()
   const {
@@ -23,7 +34,7 @@ export async function getCurrentUser(): Promise<CurrentUserWithOrg | null> {
   return data as CurrentUserWithOrg
 }
 
-export async function getContracts(orgId: string): Promise<Contract[]> {
+async function _getContracts(orgId: string): Promise<Contract[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('contracts')
@@ -33,6 +44,10 @@ export async function getContracts(orgId: string): Promise<Contract[]> {
 
   if (error) throw error
   return (data ?? []) as Contract[]
+}
+
+export function getContracts(orgId: string): Promise<Contract[]> {
+  return cached(`contracts:${orgId}`, 60, () => _getContracts(orgId))
 }
 
 export async function getTemplates(orgId: string): Promise<Template[]> {
@@ -47,7 +62,7 @@ export async function getTemplates(orgId: string): Promise<Template[]> {
   return (data ?? []) as Template[]
 }
 
-export async function getDashboardStats(orgId: string): Promise<DashboardStats> {
+async function _getDashboardStats(orgId: string): Promise<DashboardStats> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('contracts')
@@ -71,4 +86,8 @@ export async function getDashboardStats(orgId: string): Promise<DashboardStats> 
         return sum + (Number.isFinite(amount) ? amount : 0)
       }, 0),
   }
+}
+
+export function getDashboardStats(orgId: string): Promise<DashboardStats> {
+  return cached(`stats:${orgId}`, 60, () => _getDashboardStats(orgId))
 }
