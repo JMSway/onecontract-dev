@@ -23,7 +23,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     .eq('id', user.id)
     .maybeSingle()
 
-  if (error) throw error
+  if (error) console.error('[dashboard/layout] profile query:', error.message)
 
   const nameFromMeta =
     (user.user_metadata?.full_name as string | undefined) ??
