@@ -1,48 +1,40 @@
 # OneContract
 
 ## Deployment
-REPO: JMSway/onecontract-dev (single repo, single deploy)
-HOSTING: Cloudflare Workers (NOT Pages)
-DOMAIN: onecontract.kz
-BUILD: npx opennextjs-cloudflare build
-OUTPUT: .open-next/assets
-NODE: 20
-FLAGS: nodejs_compat
+REPO: JMSway/onecontract-dev
+URL: https://onecontract-dev.fordamirio.workers.dev
+DOMAIN: onecontract.kz (будет подключен к этому Workers)
 
-**IMPORTANT:** `@cloudflare/next-on-pages` is deprecated and incompatible
-with Next.js 16. Never use it. Always use `@opennextjs/cloudflare`.
+Hosting: Cloudflare Workers (NOT Pages, NOT Vercel)
+Build: npx opennextjs-cloudflare build
+Deploy: npx wrangler deploy (auto on git push)
+Node: 20
+Flags: nodejs_compat
 
-Worker size limit on Cloudflare free plan: **3 MiB gzipped**.
-Before committing dashboard changes, verify bundle size with:
-  npm run check:cf
-If over 3 MiB: remove heavy client libs from protected pages (framer-motion,
-chart libs, rich text editors). Use CSS animations instead. Landing pages
-are prerendered static HTML — heavy libs there don't count toward Worker size.
+NEVER use @cloudflare/next-on-pages — deprecated.
+NEVER use Vercel.
+Worker size limit free plan: 3 MiB gzipped.
+Check with: npm run check:cf
+NEVER commit .open-next, .next, .wrangler dirs.
 
-NEVER commit build artifacts (.open-next, .next, .vercel, .wrangler).
-
-Deploy = git push to main → Cloudflare auto-rebuilds.
-No deploy scripts needed. One repo, one environment.
-
-Environment variables (set in Cloudflare Workers dashboard):
+Env vars (set in Cloudflare Workers dashboard):
   NEXT_PUBLIC_SUPABASE_URL
   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 Supabase: https://zideehxygpnehkjeeqzr.supabase.co
-Supabase Redirect URLs configured:
+Supabase Redirect URLs:
   https://onecontract-dev.fordamirio.workers.dev/**
   https://onecontract.kz/**
   http://localhost:3000/**
 
-Google OAuth: configured via Google Cloud Console
+Google OAuth:
   Project: OneContract (resounding-age-494001-f3)
   Client: OneContract Web
-  Status: Published (all users can sign in)
   Callback: https://zideehxygpnehkjeeqzr.supabase.co/auth/v1/callback
 
 **CRITICAL DEPLOYMENT RULES FOR AI:**
-1. **Always push to main:** When completing tasks, you MUST ALWAYS `git push` to `onecontract-dev`. This triggers auto-deploy to Cloudflare Workers.
-2. **No production repo:** JMSway/onecontract (frozen) is only used before diploma defense via `scripts/deploy-production.sh`.
+1. **Always push to main** — triggers auto-deploy to Cloudflare Workers.
+2. **Never push to JMSway/onecontract** (frozen production repo).
 
 Electronic contract platform for educational centers in Kazakhstan.
 Language schools as anchor segment → IT courses & online schools in wave 2.

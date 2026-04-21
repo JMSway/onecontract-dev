@@ -1,5 +1,5 @@
 {
-  "name": "onecontract-temp",
+  "name": "onecontract",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,10 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pages:build": "opennextjs-cloudflare build",
-    "pages:preview": "npm run pages:build && wrangler pages dev",
-    "pages:deploy": "npm run pages:build && wrangler pages deploy --project-name=onecontract",
-    "check:cf": "npm run pages:build && echo '--- gzipped handler size:' && gzip -c .open-next/server-functions/default/handler.mjs | wc -c | awk '{printf \"%.2f MiB (limit 3 MiB free / 10 MiB paid)\\n\", $1/1048576}'"
+    "check:cf": "opennextjs-cloudflare build && echo '--- gzipped handler size:' && gzip -c .open-next/server-functions/default/handler.mjs | wc -c | awk '{printf \"%.2f MiB (limit 3 MiB free / 10 MiB paid)\\n\", $1/1048576}'"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
