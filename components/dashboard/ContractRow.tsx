@@ -106,7 +106,7 @@ export function ContractRow({
               <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-ice rounded-xl shadow-lg py-1 z-20">
                 {hasPdf && (
                   <a
-                    href={contract.pdfUrl!}
+                    href={`/api/contracts/${contract.id}/pdf`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setMenuOpen(false)}

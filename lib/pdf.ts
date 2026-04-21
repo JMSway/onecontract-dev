@@ -26,6 +26,14 @@ export type AppendSealParams = {
   qrPngBuffer: Buffer | Uint8Array
 }
 
+export type AppendSummaryParams = {
+  orgName: string
+  templateName: string
+  contractId: string
+  managerFields: Field[]
+  clientFields: Field[]
+}
+
 // Split text into Latin/Cyrillic segments for dual-font rendering
 function splitByScript(text: string): Array<{ text: string; isCyrillic: boolean }> {
   const segs: Array<{ text: string; isCyrillic: boolean }> = []
@@ -279,6 +287,76 @@ export async function appendSealPage(
   drawMixed(page, 'Документ подписан простой электронной подписью (ПЭП) в соответствии со ст.152 ГК РК.', lf, cf, MARGIN, y, 9, MUTED)
   y -= 14
   drawMixed(page, 'Сформирован автоматически. Юридически значимо без NCALayer/ЭЦП.', lf, cf, MARGIN, y, 9, MUTED)
+
+  return doc.save()
+}
+
+/**
+ * Append a summary page listing filled contract fields (manager + client).
+ * Useful as a middle page between the original document and the seal page —
+ * provides a clean, machine-readable record of the data submitted, even if
+ * placeholder substitution in the original document was imperfect.
+ */
+export async function appendSummaryPage(
+  pdfBytes: Uint8Array,
+  p: AppendSummaryParams,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes)
+  doc.registerFontkit(fontkit)
+
+  const lf = await doc.embedFont(Buffer.from(NOTO_SANS_LATIN_WOFF_B64, 'base64'))
+  const cf = await doc.embedFont(Buffer.from(NOTO_SANS_CYRILLIC_WOFF_B64, 'base64'))
+
+  let page = doc.addPage([W, H])
+  let y = H - MARGIN
+
+  const newPage = () => { page = doc.addPage([W, H]); y = H - MARGIN }
+
+  const line = (text: string, sz: number, col = TEXT, indent = 0) => {
+    if (y < MARGIN + 40) newPage()
+    drawMixed(page, text.slice(0, 300), lf, cf, MARGIN + indent, y, sz, col)
+    y -= LINE_H * (sz / 10)
+  }
+
+  const hline = () => {
+    page.drawLine({ start: { x: MARGIN, y }, end: { x: W - MARGIN, y }, thickness: 0.4, color: ICE })
+    y -= 8
+  }
+
+  const fieldRow = (label: string, value: string) => {
+    if (y < MARGIN + 30) newPage()
+    const lTrunc = truncate(label, CW * 0.46, lf, cf, 9)
+    const vTrunc = truncate(value || '—', CW * 0.5, lf, cf, 9)
+    drawMixed(page, lTrunc, lf, cf, MARGIN, y, 9, MUTED)
+    drawMixed(page, vTrunc, lf, cf, MARGIN + CW * 0.5, y, 9, TEXT)
+    page.drawLine({ start: { x: MARGIN, y: y - 4 }, end: { x: W - MARGIN, y: y - 4 }, thickness: 0.25, color: ICE })
+    y -= LINE_H
+  }
+
+  // Header
+  const orgTrunc = truncate(p.orgName, CW - 80, lf, cf, 14)
+  drawMixed(page, orgTrunc, lf, cf, MARGIN, y, 14, NAVY)
+  y -= 18
+
+  const subLine = truncate(`Сводка данных · Договор №${p.contractId.slice(0, 8).toUpperCase()}`, CW, lf, cf, 9)
+  drawMixed(page, subLine, lf, cf, MARGIN, y, 9, MUTED)
+  y -= 14
+
+  hline()
+  y -= 2
+
+  if (p.managerFields.length > 0) {
+    line('УСЛОВИЯ ДОГОВОРА', 8, MUTED)
+    y -= 2
+    for (const f of p.managerFields) fieldRow(f.label, f.value)
+    y -= 6; hline(); y -= 2
+  }
+
+  if (p.clientFields.length > 0) {
+    line('ДАННЫЕ ЗАКАЗЧИКА', 8, MUTED)
+    y -= 2
+    for (const f of p.clientFields) fieldRow(f.label, f.value)
+  }
 
   return doc.save()
 }

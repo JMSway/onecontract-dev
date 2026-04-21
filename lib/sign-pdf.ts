@@ -1,8 +1,10 @@
 import QRCode from 'qrcode'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { generateSignedContractPdf, appendSealPage } from './pdf'
+import { generateSignedContractPdf, appendSealPage, appendSummaryPage } from './pdf'
 import { fillTemplate } from './docx'
 import { convertDocxToPdf, readConvertApiSecret } from './convertapi'
+import { ensureSignedPdfUrl } from './pdf-cache'
+import { tryOriginalPdfPath } from './source-pdf'
 
 export type SignedPdfMetadata = {
   contractId: string
@@ -14,7 +16,7 @@ export type SignedPdfMetadata = {
 
 export type GenerationResult = {
   pdfUrl: string | null
-  via: 'docx' | 'pdf_lib' | 'none'
+  via: 'cached' | 'docx' | 'source_pdf' | 'pdf_lib_fallback' | 'none'
   error?: string
 }
 
@@ -28,7 +30,10 @@ type TemplateRow = {
   name: string | null
   fields: Array<{ key: string; label: string; filled_by?: string }> | null
   template_docx_url?: string | null
+  source_file_url?: string | null
 }
+
+const ONE_YEAR_SECONDS = 365 * 24 * 60 * 60
 
 async function buildQr(contractId: string): Promise<Buffer> {
   return QRCode.toBuffer(
@@ -53,7 +58,7 @@ async function uploadAndSign(
 
   const { data: signed } = await supabase.storage
     .from('contracts')
-    .createSignedUrl(`${contractId}.pdf`, 7 * 24 * 60 * 60)
+    .createSignedUrl(`${contractId}.pdf`, ONE_YEAR_SECONDS)
 
   return signed?.signedUrl ?? null
 }
@@ -83,28 +88,17 @@ async function tryDocxPath(
     }
 
     const filled = fillTemplate(docxBytes, data)
-    const pdfBytes = await convertDocxToPdf(filled, convertKey, `${meta.contractId.slice(0, 8)}.docx`)
-    const qr = await buildQr(meta.contractId)
-    return await appendSealPage(pdfBytes, {
-      contractId: meta.contractId,
-      signerPhone: meta.signerPhone,
-      signerIp: meta.signerIp,
-      signedAt: meta.signedAt,
-      sealHash: meta.sealHash,
-      qrPngBuffer: qr,
-    })
+    return await convertDocxToPdf(filled, convertKey, `${meta.contractId.slice(0, 8)}.docx`)
   } catch (err) {
-    console.warn('[sign-pdf] docx path failed, falling back:', err)
+    console.warn('[sign-pdf] docx path failed:', err)
     return null
   }
 }
 
-async function pdfLibPath(
+function buildSummaryFields(
   template: TemplateRow,
-  orgName: string,
   contract: ContractLike,
-  meta: SignedPdfMetadata,
-): Promise<Uint8Array> {
+): { managerFields: { label: string; value: string }[]; clientFields: { label: string; value: string }[] } {
   const fields = template.fields ?? []
   const data = contract.data ?? {}
 
@@ -116,6 +110,16 @@ async function pdfLibPath(
     .filter((f) => f.filled_by === 'client')
     .map((f) => ({ label: f.label, value: data[f.key] ?? '—' }))
 
+  return { managerFields, clientFields }
+}
+
+async function summaryOnlyFallback(
+  template: TemplateRow,
+  orgName: string,
+  contract: ContractLike,
+  meta: SignedPdfMetadata,
+): Promise<Uint8Array> {
+  const { managerFields, clientFields } = buildSummaryFields(template, contract)
   const qr = await buildQr(meta.contractId)
 
   return generateSignedContractPdf({
@@ -133,17 +137,25 @@ async function pdfLibPath(
 }
 
 /**
- * Generate the signed PDF for a contract, preferring the layout-preserving
- * docx → ConvertAPI path and falling back to the pdf-lib renderer on any failure.
- * Uploads to the `contracts` bucket and returns a fresh 7-day signed URL.
+ * Generate the signed PDF for a contract with layout preservation:
+ *   1. Cache: return existing PDF if it's already in storage (skip ConvertAPI)
+ *   2. DOCX path: fill `{{placeholders}}` in normalized docx → ConvertAPI
+ *   3. Source PDF fallback: serve original template (docx-as-is or pdf) unmodified
+ *   4. Final fallback: summary-only pdf-lib render
+ *
+ * In all successful paths, a summary page and a seal page are appended so the
+ * resulting PDF always contains the filled values and an HMAC-verifiable QR code.
+ * Uploads to `contracts/{contractId}.pdf` with a fresh 1-year signed URL.
  */
 export async function generateAndStorePdf(
   supabase: SupabaseClient,
   contract: ContractLike,
   meta: SignedPdfMetadata,
 ): Promise<GenerationResult> {
-  // `select('*')` keeps this working even before migration 005 is applied
-  // (template_docx_url column missing) — docx path is simply skipped in that case.
+  // 1. Cache check — don't regenerate if already produced
+  const cached = await ensureSignedPdfUrl(supabase, meta.contractId)
+  if (cached) return { pdfUrl: cached, via: 'cached' }
+
   const [templateRes, orgRes] = await Promise.all([
     supabase
       .from('templates')
@@ -153,22 +165,54 @@ export async function generateAndStorePdf(
     supabase.from('organizations').select('name').eq('id', contract.org_id).maybeSingle(),
   ])
 
-  const template = (templateRes.data ?? { name: 'Договор', fields: [], template_docx_url: null }) as TemplateRow
+  const template = (templateRes.data ?? { name: 'Договор', fields: [], template_docx_url: null, source_file_url: null }) as TemplateRow
   const orgName = orgRes.data?.name ?? 'Организация'
 
-  let pdfBytes = await tryDocxPath(supabase, template, contract, meta)
-  let via: GenerationResult['via'] = 'docx'
+  let basePdf: Uint8Array | null = null
+  let via: GenerationResult['via'] = 'none'
 
-  if (!pdfBytes) {
-    try {
-      pdfBytes = await pdfLibPath(template, orgName, contract, meta)
-      via = 'pdf_lib'
-    } catch (err) {
-      console.error('[sign-pdf] pdf-lib path failed:', err)
-      return { pdfUrl: null, via: 'none', error: err instanceof Error ? err.message : 'unknown' }
-    }
+  // 2. DOCX filled path
+  basePdf = await tryDocxPath(supabase, template, contract, meta)
+  if (basePdf) via = 'docx'
+
+  // 3. Original-source fallback (docx-as-is or raw pdf)
+  if (!basePdf) {
+    basePdf = await tryOriginalPdfPath(supabase, template.source_file_url ?? null)
+    if (basePdf) via = 'source_pdf'
   }
 
-  const pdfUrl = await uploadAndSign(supabase, meta.contractId, pdfBytes)
+  let finalPdf: Uint8Array
+  try {
+    if (basePdf) {
+      const { managerFields, clientFields } = buildSummaryFields(template, contract)
+      const withSummary = await appendSummaryPage(basePdf, {
+        orgName,
+        templateName: template.name ?? 'Договор',
+        contractId: meta.contractId,
+        managerFields,
+        clientFields,
+      })
+      const qr = await buildQr(meta.contractId)
+      finalPdf = await appendSealPage(withSummary, {
+        contractId: meta.contractId,
+        signerPhone: meta.signerPhone,
+        signerIp: meta.signerIp,
+        signedAt: meta.signedAt,
+        sealHash: meta.sealHash,
+        qrPngBuffer: qr,
+      })
+    } else {
+      // 4. Last-resort summary-only
+      finalPdf = await summaryOnlyFallback(template, orgName, contract, meta)
+      via = 'pdf_lib_fallback'
+    }
+  } catch (err) {
+    console.error('[sign-pdf] assembly failed:', err)
+    return { pdfUrl: null, via: 'none', error: err instanceof Error ? err.message : 'unknown' }
+  }
+
+  const pdfUrl = await uploadAndSign(supabase, meta.contractId, finalPdf)
+  if (!pdfUrl) return { pdfUrl: null, via: 'none', error: 'upload failed' }
+
   return { pdfUrl, via }
 }

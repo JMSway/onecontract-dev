@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
+import { ensureSignedPdfUrl } from '@/lib/pdf-cache'
 
 export async function GET(
   _request: NextRequest,
@@ -23,13 +25,11 @@ export async function GET(
     supabase.from('organizations').select('name').eq('id', contract.org_id).maybeSingle(),
   ])
 
-  // Fresh signed URL so the signer can re-download the PDF weeks later.
+  // Lazy re-sign with long-lived URL so QR-based verification keeps working.
   let pdfUrl: string | null = null
   if (contract.status === 'signed') {
-    const { data: fresh } = await supabase.storage
-      .from('contracts')
-      .createSignedUrl(`${contractId}.pdf`, 7 * 24 * 60 * 60)
-    pdfUrl = fresh?.signedUrl ?? null
+    const serviceSupabase = createServiceClient()
+    pdfUrl = await ensureSignedPdfUrl(serviceSupabase, contractId)
   }
 
   return NextResponse.json({

@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { Upload, Loader2, AlertCircle } from 'lucide-react'
+import { Upload, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { BoxLoader } from '@/components/ui/BoxLoader'
 import type { TemplateField, DocxPatch } from '@/lib/types'
 import type { EditableField } from './FieldRow'
 
@@ -181,8 +182,8 @@ export function UploadStep({ onReady }: UploadStepProps) {
       >
         {loading ? (
           <>
-            <Loader2 size={40} className="text-[#0F52BA] animate-spin" strokeWidth={1.5} />
-            <p className="text-sm font-medium text-[#0D1B2A]">{loadingMsg}</p>
+            <BoxLoader />
+            <p className="text-sm font-medium text-[#0D1B2A] mt-2">{loadingMsg}</p>
             <p className="text-xs text-[#6B7E92]">Обычно занимает 10–30 секунд</p>
           </>
         ) : (

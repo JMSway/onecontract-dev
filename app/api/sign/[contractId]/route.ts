@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { ensureSignedPdfUrl } from '@/lib/pdf-cache'
 
 export async function GET(
   _request: NextRequest,
@@ -63,13 +64,11 @@ export async function GET(
     }
   }
 
-  // Refresh signed URL for signed PDF (7-day signed URLs expire)
+  // Lazy re-sign: always hand back a fresh long-lived URL if the file exists.
   let pdfUrl: string | null = null
   if (contract.status === 'signed') {
-    const { data: fresh } = await supabase.storage
-      .from('contracts')
-      .createSignedUrl(`${contractId}.pdf`, 7 * 24 * 60 * 60)
-    pdfUrl = fresh?.signedUrl ?? null
+    const serviceSupabase = createServiceClient()
+    pdfUrl = await ensureSignedPdfUrl(serviceSupabase, contractId)
   }
 
   // Get org name
