@@ -16,6 +16,7 @@ export interface DashboardUser {
   email: string
   name: string
   role: UserRole
+  orgId: string
   orgName: string
   createdAt: string
 }

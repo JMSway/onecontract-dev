@@ -1,7 +1,4 @@
-'use client'
-
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Check, FileSignature, MessageSquare, QrCode, Signal, Wifi, BatteryFull } from 'lucide-react'
 
 function PhoneMockup() {
@@ -16,9 +13,7 @@ function PhoneMockup() {
 
             {/* Dynamic Island */}
             <div className="absolute top-[10px] left-1/2 -translate-x-1/2 w-[95px] h-[30px] bg-black rounded-full z-30 flex items-center justify-between px-2.5">
-              {/* Camera dot */}
               <div className="w-1.5 h-1.5 rounded-full bg-[#1a1a2e]" />
-              {/* Face ID sensor */}
               <div className="w-2 h-2 rounded-full bg-[#0a0a15] ring-[1px] ring-[#1a1a2e]" />
             </div>
 
@@ -35,7 +30,6 @@ function PhoneMockup() {
 
             {/* App content */}
             <div className="flex-1 flex flex-col px-4 pt-6 pb-4 overflow-hidden">
-              {/* App header */}
               <div className="flex items-center gap-2.5 mb-4">
                 <div className="w-9 h-9 bg-sapphire rounded-[10px] flex items-center justify-center shadow-sm">
                   <FileSignature size={18} strokeWidth={1.8} className="text-white" />
@@ -46,7 +40,6 @@ function PhoneMockup() {
                 </div>
               </div>
 
-              {/* Contract preview */}
               <div className="bg-ice/40 border border-ice rounded-xl p-3 mb-3">
                 <p className="text-[11px] font-bold text-text-dark mb-2">Договор об оказании услуг</p>
                 <div className="space-y-1">
@@ -62,7 +55,6 @@ function PhoneMockup() {
                 </div>
               </div>
 
-              {/* OTP input */}
               <div className="mb-3">
                 <p className="text-[10px] text-muted mb-2 text-center">Введите код из SMS</p>
                 <div className="flex gap-1 justify-center">
@@ -81,13 +73,11 @@ function PhoneMockup() {
                 </div>
               </div>
 
-              {/* Sign button */}
               <button className="w-full bg-sapphire text-white text-[11px] font-bold py-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm">
                 <Check size={14} strokeWidth={3} />
                 Подписать договор
               </button>
 
-              {/* Bottom indicator */}
               <div className="mt-2.5 flex items-center justify-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
                 <p className="text-[9px] text-muted">Защищено SHA-256</p>
@@ -100,42 +90,33 @@ function PhoneMockup() {
         </div>
       </div>
 
-      {/* Floating badges — positioned to NOT overlap the screen content */}
-      <motion.div
-        initial={{ opacity: 0, x: 24 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1, duration: 0.5 }}
-        className="absolute -right-4 sm:-right-10 top-[22%] bg-white border border-ice rounded-xl px-3 py-2 shadow-xl shadow-navy/30"
-      >
+      {/* Floating badges */}
+      <div className="absolute -right-4 sm:-right-10 top-[22%] bg-white border border-ice rounded-xl px-3 py-2 shadow-xl shadow-navy/30 animate-float-in-right">
         <div className="flex items-center gap-2">
           <MessageSquare size={14} strokeWidth={1.8} className="text-sapphire" />
           <span className="text-[10px] font-semibold text-text-dark whitespace-nowrap">SMS отправлена</span>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, x: -24 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 1.3, duration: 0.5 }}
-        className="absolute -left-4 sm:-left-12 top-[46%] bg-white border border-success/30 rounded-xl px-3 py-2 shadow-xl shadow-navy/30"
+      <div
+        className="absolute -left-4 sm:-left-12 top-[46%] bg-white border border-success/30 rounded-xl px-3 py-2 shadow-xl shadow-navy/30 animate-float-in-left"
+        style={{ animationDelay: '0.3s' }}
       >
         <div className="flex items-center gap-2">
           <Check size={14} strokeWidth={2.5} className="text-success" />
           <span className="text-[10px] font-semibold text-success whitespace-nowrap">Подписан</span>
         </div>
-      </motion.div>
+      </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.6, duration: 0.5 }}
-        className="absolute -right-4 sm:-right-8 bottom-[14%] bg-white border border-ice rounded-xl px-3 py-2 shadow-xl shadow-navy/30"
+      <div
+        className="absolute -right-4 sm:-right-8 bottom-[14%] bg-white border border-ice rounded-xl px-3 py-2 shadow-xl shadow-navy/30 animate-fade-in-up"
+        style={{ animationDelay: '0.6s' }}
       >
         <div className="flex items-center gap-2">
           <QrCode size={14} strokeWidth={1.8} className="text-sapphire" />
           <span className="text-[10px] font-semibold text-text-dark whitespace-nowrap">eGov QR</span>
         </div>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -152,77 +133,58 @@ export function HeroSection() {
           backgroundSize: '60px 60px',
         }}
       />
-      {/* Glow */}
-      <motion.div 
-        animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
-        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-        className="absolute top-1/3 left-[20%] w-[500px] h-[500px] bg-sapphire/20 rounded-full blur-[120px] pointer-events-none" 
-      />
+      {/* Glow — pulsing via CSS keyframe */}
+      <div className="absolute top-1/3 left-[20%] w-[500px] h-[500px] bg-sapphire/20 rounded-full blur-[120px] pointer-events-none animate-glow-pulse" />
 
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-24 md:py-0">
         <div className="grid md:grid-cols-2 gap-12 md:gap-8 items-center min-h-screen md:min-h-0 md:py-32">
 
-          {/* Left: copy */}
           <div>
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
+            <div className="animate-fade-in-up">
               <span className="inline-flex items-center gap-2 border border-powder/20 text-powder text-xs font-semibold uppercase tracking-widest px-4 py-1.5 rounded-full mb-8">
                 <span className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
                 ПЭП легализован в РК с июля 2024
               </span>
-            </motion.div>
+            </div>
 
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-4xl sm:text-5xl md:text-[3.5rem] font-bold text-white leading-[1.1] tracking-tight mb-6"
+            <h1
+              className="text-4xl sm:text-5xl md:text-[3.5rem] font-bold text-white leading-[1.1] tracking-tight mb-6 animate-fade-in-up"
+              style={{ animationDelay: '0.1s' }}
             >
               Ваши ученики подписывают договор{' '}
               <span className="text-powder">за 30 секунд</span>
-            </motion.h1>
+            </h1>
 
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-base text-muted leading-relaxed mb-10 max-w-lg"
+            <p
+              className="text-base text-muted leading-relaxed mb-10 max-w-lg animate-fade-in-up"
+              style={{ animationDelay: '0.2s' }}
             >
               Электронные договоры для языковых школ.
               Без NCALayer. Без бумаги.{' '}
               <span className="text-powder/80">Юридическая сила по закону РК.</span>
-            </motion.p>
+            </p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-start gap-4"
+            <div
+              className="flex flex-col sm:flex-row items-start gap-4 animate-fade-in-up"
+              style={{ animationDelay: '0.3s' }}
             >
-              <motion.div whileHover={{ scale: 1.02 }} transition={{ duration: 0.15 }}>
-                <Link
-                  href="/auth/register"
-                  className="inline-flex items-center gap-2 bg-sapphire hover:bg-blue-700 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors shadow-lg shadow-sapphire/25"
-                >
-                  Попробовать бесплатно
-                </Link>
-              </motion.div>
+              <Link
+                href="/auth/register"
+                className="inline-flex items-center gap-2 bg-sapphire hover:bg-blue-700 hover:scale-[1.02] text-white font-semibold px-6 py-3.5 rounded-xl transition-all shadow-lg shadow-sapphire/25"
+              >
+                Попробовать бесплатно
+              </Link>
               <a
                 href="#how-it-works"
                 className="inline-flex items-center gap-2 text-powder/70 hover:text-powder text-sm font-medium py-3.5 transition-colors"
               >
                 Смотреть демо →
               </a>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="mt-10 pt-8 border-t border-powder/10 flex flex-wrap gap-x-8 gap-y-3"
+            <div
+              className="mt-10 pt-8 border-t border-powder/10 flex flex-wrap gap-x-8 gap-y-3 animate-fade-in-up"
+              style={{ animationDelay: '0.7s' }}
             >
               {['Бесплатный тариф', 'Без привязки карты', 'Настройка 15 минут'].map((item) => (
                 <div key={item} className="flex items-center gap-2 text-sm text-muted">
@@ -230,21 +192,15 @@ export function HeroSection() {
                   {item}
                 </div>
               ))}
-            </motion.div>
+            </div>
           </div>
 
-          {/* Right: phone mockup */}
-          <motion.div
-            initial={{ opacity: 0, y: 32 }}
-            animate={{ opacity: 1, y: [0, -15, 0] }}
-            transition={{ 
-              opacity: { duration: 0.8, delay: 0.4 },
-              y: { duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1.2 }
-            }}
-            className="flex justify-center md:justify-end"
+          <div
+            className="flex justify-center md:justify-end animate-fade-in-up"
+            style={{ animationDelay: '0.4s' }}
           >
             <PhoneMockup />
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

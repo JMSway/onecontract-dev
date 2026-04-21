@@ -1,7 +1,6 @@
 'use client'
 
-import { motion, useInView } from 'framer-motion'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface FadeInProps {
   children: React.ReactNode
@@ -10,30 +9,52 @@ interface FadeInProps {
   direction?: 'up' | 'down' | 'left' | 'right' | 'none'
 }
 
+const directionMap: Record<NonNullable<FadeInProps['direction']>, string> = {
+  up: 'translate3d(0, 32px, 0)',
+  down: 'translate3d(0, -32px, 0)',
+  left: 'translate3d(32px, 0, 0)',
+  right: 'translate3d(-32px, 0, 0)',
+  none: 'translate3d(0, 0, 0)',
+}
+
 export function FadeIn({ children, className, delay = 0, direction = 'up' }: FadeInProps) {
-  const ref = useRef(null)
-  const isInView = useInView(ref, { once: true, margin: '-80px' })
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [visible, setVisible] = useState(false)
 
-  const directionMap = {
-    up: { y: 32, x: 0 },
-    down: { y: -32, x: 0 },
-    left: { y: 0, x: 32 },
-    right: { y: 0, x: -32 },
-    none: { y: 0, x: 0 },
-  }
+  useEffect(() => {
+    const node = ref.current
+    if (!node) return
 
-  const initial = { opacity: 0, ...directionMap[direction] }
-  const animate = isInView ? { opacity: 1, y: 0, x: 0 } : initial
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '-80px' }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [])
 
   return (
-    <motion.div
+    <div
       ref={ref}
-      initial={initial}
-      animate={animate}
-      transition={{ duration: 0.6, delay, ease: [0.22, 1, 0.36, 1] }}
       className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translate3d(0, 0, 0)' : directionMap[direction],
+        transition: `opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1) ${delay}s, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) ${delay}s`,
+        willChange: 'opacity, transform',
+      }}
     >
       {children}
-    </motion.div>
+    </div>
   )
 }

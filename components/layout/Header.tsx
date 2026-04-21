@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X } from 'lucide-react'
 
 export function Header() {
@@ -57,42 +56,37 @@ export function Header() {
         </div>
       </header>
 
-      {/* Mobile menu */}
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2 }}
-            className="fixed top-16 left-0 right-0 z-40 md:hidden bg-navy/98 backdrop-blur-md border-b border-powder/10 px-4 py-5 flex flex-col gap-4"
+      <div
+        className={`fixed top-16 left-0 right-0 z-40 md:hidden bg-navy/98 backdrop-blur-md border-b border-powder/10 px-4 py-5 flex flex-col gap-4 transition-all duration-200 ease-out ${
+          mobileOpen
+            ? 'opacity-100 translate-y-0 pointer-events-auto'
+            : 'opacity-0 -translate-y-2 pointer-events-none'
+        }`}
+      >
+        <a
+          href="#how-it-works"
+          className="text-muted hover:text-white transition-colors py-1 text-sm font-medium"
+          onClick={() => setMobileOpen(false)}
+        >
+          Как работает
+        </a>
+        <a
+          href="#pricing"
+          className="text-muted hover:text-white transition-colors py-1 text-sm font-medium"
+          onClick={() => setMobileOpen(false)}
+        >
+          Тарифы
+        </a>
+        <div className="pt-3 mt-2 border-t border-powder/10">
+          <Link
+            href="/auth/login"
+            className="inline-flex items-center justify-center bg-sapphire hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 font-semibold text-sm transition-colors"
+            onClick={() => setMobileOpen(false)}
           >
-            <a
-              href="#how-it-works"
-              className="text-muted hover:text-white transition-colors py-1 text-sm font-medium"
-              onClick={() => setMobileOpen(false)}
-            >
-              Как работает
-            </a>
-            <a
-              href="#pricing"
-              className="text-muted hover:text-white transition-colors py-1 text-sm font-medium"
-              onClick={() => setMobileOpen(false)}
-            >
-              Тарифы
-            </a>
-            <div className="pt-3 mt-2 border-t border-powder/10">
-              <Link
-                href="/auth/login"
-                className="inline-flex items-center justify-center bg-sapphire hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 font-semibold text-sm transition-colors"
-                onClick={() => setMobileOpen(false)}
-              >
-                Войти
-              </Link>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            Войти
+          </Link>
+        </div>
+      </div>
     </>
   )
 }

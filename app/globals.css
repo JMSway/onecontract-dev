@@ -37,6 +37,52 @@ body {
   }
 }
 
+@keyframes float-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes float-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.2);
+  }
+}
+
 .animate-fade-in-up {
-  animation: fade-in-up 0.3s ease-out both;
+  animation: fade-in-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float-in-right {
+  animation: float-in-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: 1s;
+}
+
+.animate-float-in-left {
+  animation: float-in-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 8s ease-in-out infinite;
 }

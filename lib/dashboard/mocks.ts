@@ -5,6 +5,7 @@ export const mockUser: DashboardUser = {
   email: 'damir@school.kz',
   name: 'Дамир',
   role: 'owner',
+  orgId: 'mock-org-1',
   orgName: 'Almaty English School',
   createdAt: new Date().toISOString(),
 }
