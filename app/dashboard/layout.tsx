@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   if (!user) redirect('/auth/login')
 
-  const { data: profile, error } = await supabase
+  let { data: profile, error } = await supabase
     .from('users')
     .select('id, email, full_name, role, org_id, organizations(id, name)')
     .eq('id', user.id)
@@ -31,6 +31,24 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     null
   const fallbackName =
     nameFromMeta ?? (user.email ? user.email.split('@')[0] : 'Пользователь')
+
+  // Orphan auth.users row (e.g. registered before trigger existed) — create profile now.
+  if (!profile && !error) {
+    const { data: created } = await supabase
+      .from('users')
+      .upsert(
+        {
+          id: user.id,
+          email: user.email ?? '',
+          full_name: fallbackName,
+          role: 'owner',
+        },
+        { onConflict: 'id', ignoreDuplicates: false }
+      )
+      .select('id, email, full_name, role, org_id, organizations(id, name)')
+      .maybeSingle()
+    profile = created ?? profile
+  }
 
   const org = profile?.organizations as { id: string; name: string } | null | undefined
   const orgName =

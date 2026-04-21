@@ -43,33 +43,17 @@ function OrgSetupForm({ onDone }: { onDone: (orgId: string, orgName: string) => 
     setError(null)
 
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setError('Сессия истекла. Обновите страницу.'); setLoading(false); return }
+    const { data, error: rpcErr } = await supabase
+      .rpc('create_organization', { org_name: trimmed })
+      .single<{ id: string; name: string }>()
 
-    const { data: org, error: orgErr } = await supabase
-      .from('organizations')
-      .insert({ name: trimmed })
-      .select('id, name')
-      .single()
-
-    if (orgErr || !org) {
+    if (rpcErr || !data) {
       setError('Не удалось создать организацию. Попробуйте ещё раз.')
       setLoading(false)
       return
     }
 
-    const { error: userErr } = await supabase
-      .from('users')
-      .update({ org_id: org.id })
-      .eq('id', user.id)
-
-    if (userErr) {
-      setError('Организация создана, но не удалось привязать к аккаунту.')
-      setLoading(false)
-      return
-    }
-
-    onDone(org.id, org.name)
+    onDone(data.id, data.name)
   }
 
   return (

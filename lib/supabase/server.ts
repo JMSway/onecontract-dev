@@ -12,14 +12,10 @@ export async function createClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch {
-            // Called from a Server Component — middleware refreshes sessions
-          }
+        setAll() {
+          // No-op. Server Components must not write cookies on Cloudflare Workers
+          // edge — the response may already be streaming. Session refresh is
+          // handled exclusively by middleware.
         },
       },
     }
