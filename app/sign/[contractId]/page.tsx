@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import {
-  FileText, ChevronDown, ChevronUp, CheckCircle2, Loader2,
-  Lock, Shield, Share2,
+  FileText, CheckCircle2, Loader2,
+  Lock, Shield, Share2, X, ChevronRight,
 } from 'lucide-react'
 import type { TemplateField } from '@/lib/types'
 
@@ -18,6 +18,8 @@ type ContractData = {
     recipient_phone_masked: string | null
     sent_via: string | null
     data: Record<string, string>
+    signed_at: string | null
+    pdf_url: string | null
   }
   template: { name: string; fields: TemplateField[]; source_file_url: string | null }
   org: { name: string }
@@ -32,6 +34,20 @@ function formatPhone(value: string) {
   if (digits.startsWith('8')) return '+7' + digits.slice(1)
   if (digits.length > 0 && !digits.startsWith('7')) return '+7' + digits
   return digits.length > 0 ? '+' + digits : ''
+}
+
+function smartPlaceholder(f: TemplateField): string {
+  if (f.placeholder) return f.placeholder
+  if (f.type === 'iin') return '123456789012'
+  if (f.type === 'phone') return '+7 700 000 00 00'
+  if (f.type === 'email') return 'name@example.com'
+  if (f.type === 'date') return 'дд.мм.гггг'
+  const l = f.label.toLowerCase()
+  if (/кем выдан|кто выдал/.test(l)) return 'МВД РК'
+  if (/адрес/.test(l)) return 'г. Алматы, ул. Абая 1'
+  if (/фио|ф\.и\.о/.test(l)) return 'Иванов Иван Иванович'
+  if (/номер документа|удостоверен/.test(l)) return '123456789'
+  return f.label
 }
 
 function validateField(f: TemplateField, val: string): string {
@@ -84,8 +100,18 @@ export default function SignPage() {
     fetch(`/api/sign/${contractId}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.error) setLoadError(d.error)
-        else setData(d)
+        if (d.error) { setLoadError(d.error); return }
+        setData(d)
+        if (d.contract?.status === 'signed') {
+          if (d.contract.pdf_url) setPdfUrl(d.contract.pdf_url)
+          if (d.contract.signed_at) {
+            setSignedAt(new Date(d.contract.signed_at).toLocaleString('ru-RU', {
+              day: 'numeric', month: 'long', year: 'numeric',
+              hour: '2-digit', minute: '2-digit',
+            }))
+          }
+          setStep('success')
+        }
       })
       .catch(() => setLoadError('Не удалось загрузить договор'))
       .finally(() => setLoading(false))
@@ -192,16 +218,30 @@ export default function SignPage() {
 
   // ─── SUCCESS ───────────────────────────────────────────────
   if (step === 'success') {
+    const verifyUrl = `${window.location.origin}/verify/${contractId}`
+    const shareUrl = pdfUrl ?? verifyUrl
     const handleShare = async () => {
-      const url = window.location.href
       if (navigator.share) {
-        try { await navigator.share({ title: 'Мой договор', text: 'Договор подписан через OneContract', url }) }
-        catch { /* user cancelled */ }
+        try {
+          await navigator.share({
+            title: 'Подписанный договор',
+            text: pdfUrl ? 'Мой подписанный договор (PDF)' : 'Проверка подписи договора',
+            url: shareUrl,
+          })
+        } catch { /* user cancelled */ }
       } else {
-        await navigator.clipboard.writeText(url)
+        await navigator.clipboard.writeText(shareUrl)
         setLinkCopied(true)
         setTimeout(() => setLinkCopied(false), 2000)
       }
+    }
+
+    const handleRetryPdf = async () => {
+      try {
+        const r = await fetch(`/api/sign/${contractId}/regenerate-pdf`, { method: 'POST' })
+        const d = await r.json()
+        if (d.pdf_url) setPdfUrl(d.pdf_url)
+      } catch { /* ignore */ }
     }
 
     return (
@@ -234,6 +274,7 @@ export default function SignPage() {
                 href={pdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                download={`contract-${contractId.slice(0, 8)}.pdf`}
                 className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
               >
                 <FileText size={16} strokeWidth={1.5} />
@@ -241,10 +282,11 @@ export default function SignPage() {
               </a>
             ) : (
               <button
-                disabled
-                className="w-full h-12 bg-[#D6E6F3] text-[#6B7E92] rounded-xl text-sm font-semibold cursor-not-allowed"
+                onClick={handleRetryPdf}
+                className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
               >
-                Скачать PDF — Скоро
+                <FileText size={16} strokeWidth={1.5} />
+                Сгенерировать PDF
               </button>
             )}
             <button
@@ -376,70 +418,18 @@ export default function SignPage() {
           </div>
         </div>
 
-        {/* Block 2 — Contract preview toggle (shown before client form) */}
-        <div className="border border-[#D6E6F3] rounded-2xl shadow-sm overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowDetails((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[#0D1B2A] hover:bg-[#D6E6F3]/20 transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <FileText size={15} strokeWidth={1.5} />
-              {showDetails ? 'Свернуть' : 'Посмотреть полный договор'}
-            </span>
-            {showDetails
-              ? <ChevronUp size={16} strokeWidth={1.5} />
-              : <ChevronDown size={16} strokeWidth={1.5} />}
-          </button>
-          {showDetails && (
-            <div className="border-t border-[#D6E6F3] bg-white pb-4 space-y-4">
-              {managerFields.some((f) => contract.data[f.key]) && (
-                <div className="px-4 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-3">
-                    Условия договора
-                  </p>
-                  <div>
-                    {managerFields.map((f) => {
-                      const val = contract.data[f.key]
-                      if (!val) return null
-                      return (
-                        <div
-                          key={f.key}
-                          className="flex justify-between items-start gap-3 py-2 border-b border-[#F0F4F8] last:border-0"
-                        >
-                          <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
-                          <span className="text-sm font-medium text-[#0D1B2A] text-right">{val}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              {template.source_file_url && (
-                <div className="px-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
-                    Оригинал шаблона
-                  </p>
-                  <iframe
-                    src={template.source_file_url}
-                    className="w-full rounded-xl border border-[#D6E6F3]"
-                    style={{ height: '480px' }}
-                    title="Шаблон договора"
-                  />
-                  <a
-                    href={template.source_file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
-                  >
-                    <FileText size={13} strokeWidth={1.5} />
-                    Скачать шаблон
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Block 2 — Contract preview button (opens modal overlay) */}
+        <button
+          type="button"
+          onClick={() => setShowDetails(true)}
+          className="w-full flex items-center justify-between px-4 py-3 border border-[#D6E6F3] rounded-2xl shadow-sm bg-white hover:bg-[#D6E6F3]/20 transition-colors"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-[#0D1B2A]">
+            <FileText size={15} strokeWidth={1.5} className="text-[#0F52BA]" />
+            Посмотреть полный договор
+          </span>
+          <ChevronRight size={16} strokeWidth={1.5} className="text-[#6B7E92]" />
+        </button>
 
         {/* Block 3 — Client fields */}
         {clientFields.length > 0 && (
@@ -472,11 +462,7 @@ export default function SignPage() {
                       const err = validateField(f, e.target.value)
                       setFieldErrors((prev) => ({ ...prev, [f.key]: err }))
                     }}
-                    placeholder={
-                      f.type === 'iin' ? '123456789012'
-                      : f.type === 'phone' ? '+7 700 000 00 00'
-                      : f.label
-                    }
+                    placeholder={smartPlaceholder(f)}
                     className={`w-full h-12 border rounded-xl px-4 text-base text-[#0D1B2A] placeholder:text-[#A6C5D7] focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 transition-colors ${
                       hasError ? 'border-red-400 focus:border-red-400' : 'border-[#D6E6F3] focus:border-[#0F52BA]'
                     }`}
@@ -569,7 +555,7 @@ export default function SignPage() {
                       ref={(el) => { otpRefs.current[i] = el }}
                       type="text"
                       inputMode="numeric"
-                      maxLength={1}
+                      maxLength={i === 0 ? 6 : 1}
                       autoComplete={i === 0 ? 'one-time-code' : 'off'}
                       value={d}
                       onChange={(e) => handleOtpInput(i, e.target.value)}
@@ -608,6 +594,86 @@ export default function SignPage() {
           Защищено SHA-256 · OneContract
         </p>
       </div>
+
+      {/* Modal overlay — full contract preview */}
+      {showDetails && (
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
+          onClick={() => setShowDetails(false)}
+        >
+          <div
+            className="relative bg-white w-full sm:max-w-xl sm:max-h-[90vh] h-[92vh] sm:h-auto rounded-t-3xl sm:rounded-2xl shadow-xl flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#D6E6F3] shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-[#0D1B2A]">Полный договор</h2>
+                <p className="text-xs text-[#6B7E92] mt-0.5">{template.name}</p>
+              </div>
+              <button
+                onClick={() => setShowDetails(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#D6E6F3]/40 transition-colors"
+                aria-label="Закрыть"
+              >
+                <X size={20} strokeWidth={1.5} className="text-[#0D1B2A]" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {managerFields.some((f) => contract.data[f.key]) && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-3">
+                    Условия договора
+                  </p>
+                  <div className="border border-[#D6E6F3] rounded-xl divide-y divide-[#F0F4F8]">
+                    {managerFields.map((f) => {
+                      const val = contract.data[f.key]
+                      if (!val) return null
+                      return (
+                        <div key={f.key} className="flex justify-between items-start gap-3 px-4 py-2.5">
+                          <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
+                          <span className="text-sm font-medium text-[#0D1B2A] text-right">{val}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              {template.source_file_url && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
+                    Оригинал документа
+                  </p>
+                  <iframe
+                    src={template.source_file_url}
+                    className="w-full rounded-xl border border-[#D6E6F3] bg-[#F8FAFC]"
+                    style={{ height: '60vh', minHeight: '400px' }}
+                    title="Шаблон договора"
+                  />
+                  <a
+                    href={template.source_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
+                  >
+                    <FileText size={13} strokeWidth={1.5} />
+                    Открыть в новой вкладке
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-[#D6E6F3] shrink-0 bg-white">
+              <button
+                onClick={() => setShowDetails(false)}
+                className="w-full h-11 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors"
+              >
+                Закрыть и продолжить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

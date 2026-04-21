@@ -40,6 +40,7 @@ export interface TemplateField {
   type: 'text' | 'number' | 'date' | 'iin' | 'phone' | 'email'
   required: boolean
   filled_by?: 'manager' | 'client'
+  placeholder?: string
 }
 
 export interface Template {

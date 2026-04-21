@@ -38,7 +38,7 @@ const INITIAL: WizardState = {
   fieldValues: {},
   sendChannel: null,
   recipientName: '',
-  recipientPhone: '',
+  recipientPhone: '+7',
   recipientEmail: '',
 }
 
@@ -359,9 +359,10 @@ export default function NewContractWizardPage() {
                       <input
                         type="tel"
                         value={state.recipientPhone}
-                        onChange={(e) =>
-                          setState((s) => ({ ...s, recipientPhone: e.target.value }))
-                        }
+                        onChange={(e) => {
+                          const v = e.target.value
+                          setState((s) => ({ ...s, recipientPhone: v.startsWith('+7') ? v : '+7' }))
+                        }}
                         placeholder="+7 700 000 00 00"
                         className="w-full px-4 h-11 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
                       />

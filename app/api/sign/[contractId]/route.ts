@@ -10,7 +10,7 @@ export async function GET(
 
   const { data: contract, error } = await supabase
     .from('contracts')
-    .select('id, status, recipient_name, recipient_phone, recipient_email, sent_via, data, template_id, org_id, created_at, sent_at, viewed_at, signed_at')
+    .select('id, status, recipient_name, recipient_phone, recipient_email, sent_via, data, template_id, org_id, created_at, sent_at, viewed_at, signed_at, pdf_url')
     .eq('id', contractId)
     .maybeSingle()
 
@@ -51,6 +51,15 @@ export async function GET(
     }
   }
 
+  // Refresh signed URL for signed PDF (7-day signed URLs expire)
+  let pdfUrl: string | null = null
+  if (contract.status === 'signed') {
+    const { data: fresh } = await supabase.storage
+      .from('contracts')
+      .createSignedUrl(`${contractId}.pdf`, 7 * 24 * 60 * 60)
+    pdfUrl = fresh?.signedUrl ?? null
+  }
+
   // Get org name
   const { data: org } = await supabase
     .from('organizations')
@@ -74,6 +83,8 @@ export async function GET(
       recipient_phone_masked: maskedPhone,
       sent_via: contract.sent_via,
       data: contract.data,
+      signed_at: contract.signed_at,
+      pdf_url: pdfUrl,
     },
     template: {
       name: template?.name ?? 'Договор',
