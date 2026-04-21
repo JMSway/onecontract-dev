@@ -63,7 +63,7 @@ async function _getTemplates(orgId: string): Promise<Template[]> {
 }
 
 export function getTemplates(orgId: string): Promise<Template[]> {
-  return cached(`templates:${orgId}`, 30, () => _getTemplates(orgId))
+  return cached(`templates:${orgId}`, 5, () => _getTemplates(orgId))
 }
 
 export function invalidateTemplatesCache(orgId: string): void {

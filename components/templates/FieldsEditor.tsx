@@ -1,6 +1,7 @@
 'use client'
 
-import { Plus, AlertCircle, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { Plus, AlertCircle, Loader2, HelpCircle, X } from 'lucide-react'
 import { FieldRow, type EditableField } from './FieldRow'
 
 interface FieldsEditorProps {
@@ -34,6 +35,8 @@ export function FieldsEditor({
   error,
   aiUnavailable,
 }: FieldsEditorProps) {
+  const [showHelp, setShowHelp] = useState(false)
+
   return (
     <div className="bg-white border border-[#D6E6F3] rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
       {aiUnavailable && (
@@ -52,7 +55,7 @@ export function FieldsEditor({
             value={templateName}
             onChange={(e) => onNameChange(e.target.value)}
             placeholder="Например: Договор об оказании услуг"
-            className="w-full border border-[#A6C5D7] rounded-xl px-4 py-2.5 text-sm text-[#0D1B2A] placeholder:text-[#A6C5D7] focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 focus:border-[#0F52BA] transition-colors"
+            className="w-full border border-[#A6C5D7] rounded-xl px-4 h-11 text-sm text-[#0D1B2A] placeholder:text-[#A6C5D7] focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 focus:border-[#0F52BA] transition-colors"
           />
         </div>
         <div>
@@ -74,12 +77,42 @@ export function FieldsEditor({
           <label className="text-xs font-semibold uppercase tracking-widest text-[#6B7E92]">
             Поля ({fields.length})
           </label>
-          {fields.length === 0 && (
-            <span className="text-xs text-amber-600 flex items-center gap-1">
-              <AlertCircle size={12} /> AI не нашёл полей, добавьте вручную
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {fields.length === 0 && (
+              <span className="text-xs text-amber-600 flex items-center gap-1">
+                <AlertCircle size={12} /> AI не нашёл полей, добавьте вручную
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowHelp((v) => !v)}
+              className="inline-flex items-center gap-1 text-xs text-[#6B7E92] hover:text-[#0D1B2A] transition-colors"
+            >
+              {showHelp ? <X size={13} strokeWidth={1.5} /> : <HelpCircle size={13} strokeWidth={1.5} />}
+              {showHelp ? 'Скрыть' : 'Как это работает?'}
+            </button>
+          </div>
         </div>
+
+        {showHelp && (
+          <div className="mb-3 bg-[#D6E6F3]/40 border border-[#A6C5D7] rounded-xl px-4 py-3 text-xs text-[#0D1B2A] space-y-1.5">
+            <p className="font-semibold text-[#0D1B2A] mb-1">Кто заполняет каждое поле?</p>
+            <p className="flex items-start gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#0F52BA] mt-0.5 shrink-0 inline-block" />
+              <span><span className="font-medium">Менеджер</span> — заполняет при создании договора: название курса, стоимость, сроки, реквизиты.</span>
+            </p>
+            <p className="flex items-start gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#0F7B55] mt-0.5 shrink-0 inline-block" />
+              <span><span className="font-medium">Клиент</span> — заполняет при подписании: ИИН, адрес проживания, номер документа.</span>
+            </p>
+            <p className="flex items-start gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#0F7B55] mt-0.5 shrink-0 inline-block" />
+              <span><span className="font-medium">Авто</span> — система подставит значение автоматически при отправке (текущая дата, номер договора).</span>
+            </p>
+            <p className="text-[#6B7E92] mt-1">Нажмите на иконку <span className="font-mono">👜/👤</span> рядом с полем чтобы переключить.</p>
+          </div>
+        )}
+
         <div className="space-y-2">
           {fields.map((field) => (
             <FieldRow
@@ -111,7 +144,7 @@ export function FieldsEditor({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 border border-[#A6C5D7] text-[#0D1B2A] rounded-xl py-2.5 text-sm font-semibold hover:bg-[#D6E6F3]/30 transition-colors"
+          className="flex-1 border border-[#A6C5D7] text-[#0D1B2A] rounded-xl h-11 text-sm font-semibold hover:bg-[#D6E6F3]/30 transition-colors"
         >
           Отмена
         </button>
@@ -119,7 +152,7 @@ export function FieldsEditor({
           type="button"
           onClick={onSave}
           disabled={saving || !templateName.trim()}
-          className="flex-1 bg-[#0F52BA] text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          className="flex-1 bg-[#0F52BA] text-white rounded-xl h-11 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
         >
           {saving ? (
             <>

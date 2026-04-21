@@ -56,21 +56,21 @@ function TemplateCard({ template, onDelete }: TemplateCardProps) {
       <div className="flex items-center gap-1 shrink-0">
         <Link
           href={`/dashboard/templates/${template.id}/edit`}
-          className="p-2 rounded-xl text-[#6B7E92] hover:text-[#0F52BA] hover:bg-[#D6E6F3]/50 transition-colors"
+          className="w-10 h-10 flex items-center justify-center rounded-xl text-[#6B7E92] hover:text-[#0F52BA] hover:bg-[#D6E6F3]/50 transition-colors"
           title="Редактировать шаблон"
         >
-          <Pencil size={16} strokeWidth={1.5} />
+          <Pencil size={18} strokeWidth={1.5} />
         </Link>
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="p-2 rounded-xl text-[#6B7E92] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
+          className="w-10 h-10 flex items-center justify-center rounded-xl text-[#6B7E92] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
           title="Удалить шаблон"
         >
           {deleting ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2 size={18} className="animate-spin" />
           ) : (
-            <Trash2 size={16} strokeWidth={1.5} />
+            <Trash2 size={18} strokeWidth={1.5} />
           )}
         </button>
       </div>
@@ -120,9 +120,9 @@ export default function TemplatesPage() {
         </div>
         <Link
           href="/dashboard/templates/new"
-          className="bg-[#0F52BA] text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
+          className="bg-[#0F52BA] text-white rounded-xl px-4 h-10 text-sm font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2"
         >
-          <Plus size={16} strokeWidth={1.5} />
+          <Plus size={18} strokeWidth={1.5} />
           <span className="hidden sm:inline">Загрузить шаблон</span>
           <span className="sm:hidden">Загрузить</span>
         </Link>

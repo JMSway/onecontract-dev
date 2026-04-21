@@ -224,11 +224,11 @@ export default function NewContractWizardPage() {
                           : 'border-ice hover:border-powder'
                       }`}
                     >
-                      <p className="text-sm font-semibold text-text-dark mb-1">{t.name}</p>
+                      <p className="text-base font-semibold text-text-dark mb-1">{t.name}</p>
                       {t.description && (
-                        <p className="text-xs text-muted line-clamp-2 mb-2">{t.description}</p>
+                        <p className="text-sm text-muted line-clamp-2 mb-2">{t.description}</p>
                       )}
-                      <p className="text-xs text-muted">{pluralFields(t.fields.length)}</p>
+                      <p className="text-sm text-muted">{pluralFields(t.fields.length)}</p>
                     </button>
                   ))}
                 </div>
@@ -275,7 +275,7 @@ export default function NewContractWizardPage() {
                               }))
                             }
                             placeholder={field.label}
-                            className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                            className="w-full px-4 h-11 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
                           />
                         </div>
                       ))}
@@ -348,7 +348,7 @@ export default function NewContractWizardPage() {
                         setState((s) => ({ ...s, recipientName: e.target.value }))
                       }
                       placeholder="Иванов Иван"
-                      className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                      className="w-full px-4 h-11 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
                     />
                   </div>
                   {state.sendChannel === 'sms' ? (
@@ -363,7 +363,7 @@ export default function NewContractWizardPage() {
                           setState((s) => ({ ...s, recipientPhone: e.target.value }))
                         }
                         placeholder="+7 700 000 00 00"
-                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                        className="w-full px-4 h-11 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
                       />
                     </div>
                   ) : (
@@ -378,7 +378,7 @@ export default function NewContractWizardPage() {
                           setState((s) => ({ ...s, recipientEmail: e.target.value }))
                         }
                         placeholder="client@email.com"
-                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                        className="w-full px-4 h-11 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
                       />
                     </div>
                   )}
@@ -466,9 +466,9 @@ export default function NewContractWizardPage() {
             type="button"
             onClick={() => setStep((s) => Math.max(1, s - 1))}
             disabled={step === 1}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-text-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 h-11 px-5 text-base font-medium text-muted hover:text-text-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
-            <ArrowLeft size={14} strokeWidth={1.5} />
+            <ArrowLeft size={16} strokeWidth={1.5} />
             Назад
           </button>
 
@@ -477,20 +477,20 @@ export default function NewContractWizardPage() {
               type="button"
               onClick={() => setStep((s) => Math.min(4, s + 1))}
               disabled={!canProceed()}
-              className="inline-flex items-center gap-1.5 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
+              className="inline-flex items-center gap-2 h-11 px-6 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-base"
             >
               Далее
-              <ArrowRight size={14} strokeWidth={1.5} />
+              <ArrowRight size={16} strokeWidth={1.5} />
             </button>
           ) : (
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting}
-              className="inline-flex items-center gap-1.5 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
+              className="inline-flex items-center gap-2 h-11 px-6 bg-sapphire hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors text-base"
             >
               {submitting ? 'Создаём…' : 'Создать и отправить'}
-              <ArrowRight size={14} strokeWidth={1.5} />
+              <ArrowRight size={16} strokeWidth={1.5} />
             </button>
           )}
         </div>

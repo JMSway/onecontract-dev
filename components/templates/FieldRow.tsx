@@ -62,7 +62,7 @@ export function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
         type="button"
         onClick={() => onChange({ required: !field.required })}
         title={field.required ? 'Обязательное' : 'Необязательное'}
-        className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-colors duration-150 ${
+        className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold transition-colors duration-150 ${
           field.required ? 'bg-[#0F52BA]/10 text-[#0F52BA]' : 'bg-gray-200 text-[#6B7E92]'
         }`}
       >
@@ -72,21 +72,21 @@ export function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
         type="button"
         onClick={() => onChange({ filled_by: isClient ? 'manager' : 'client' })}
         title={isClient ? 'Заполняет клиент' : 'Заполняет менеджер'}
-        className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center transition-colors duration-150 ${
+        className={`shrink-0 w-8 h-8 rounded-md flex items-center justify-center transition-colors duration-150 ${
           isClient
             ? 'bg-[#0F7B55]/10 text-[#0F7B55]'
             : 'bg-gray-100 text-[#6B7E92] hover:bg-gray-200'
         }`}
       >
-        {isClient ? <User size={11} strokeWidth={1.5} /> : <Briefcase size={11} strokeWidth={1.5} />}
+        {isClient ? <User size={13} strokeWidth={1.5} /> : <Briefcase size={13} strokeWidth={1.5} />}
       </button>
       <button
         type="button"
         onClick={onRemove}
-        className="shrink-0 p-1 rounded-lg text-[#6B7E92] hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-150"
+        className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[#6B7E92] hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-150"
         title="Удалить поле"
       >
-        <Trash2 size={14} />
+        <Trash2 size={15} strokeWidth={1.5} />
       </button>
     </div>
   )
