@@ -182,7 +182,7 @@ export default function SignPage() {
       setOtpError(null)
       const r = await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
       const d = await r.json()
-      if (d.code) setTestCode(d.code)
+      if (d.testCode) setTestCode(d.testCode)
     }
 
     return (

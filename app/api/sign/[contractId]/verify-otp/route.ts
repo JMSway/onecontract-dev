@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
@@ -34,13 +35,13 @@ export async function POST(
 
   if (!sig) return NextResponse.json({ success: false, error: 'Код не найден. Запросите новый.' })
 
-  // Check expiry (stored in signer_ua temporarily)
   const expiresAt = sig.signer_ua ? new Date(sig.signer_ua).getTime() : 0
   if (Date.now() > expiresAt) {
     return NextResponse.json({ success: false, error: 'Код истёк. Запросите новый.' })
   }
 
-  if (sig.otp_code !== body.code) {
+  const inputHash = createHash('sha256').update(body.code).digest('hex')
+  if (inputHash !== sig.otp_code) {
     return NextResponse.json({ success: false, error: 'Неверный код. Проверьте и попробуйте снова.' })
   }
 

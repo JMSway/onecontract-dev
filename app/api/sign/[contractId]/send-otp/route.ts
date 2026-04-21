@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(
@@ -19,25 +20,22 @@ export async function POST(
     return NextResponse.json({ error: 'Contract not in signable state' }, { status: 403 })
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000))
+  const code = Math.floor(100000 + Math.random() * 900000).toString()
+  const codeHash = createHash('sha256').update(code).digest('hex')
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
-  // Delete any previous OTP for this contract
   await supabase.from('signatures').delete().eq('contract_id', contractId)
 
   const { error } = await supabase.from('signatures').insert({
     contract_id: contractId,
     method: 'sms_otp',
-    otp_code: code,
+    otp_code: codeHash,
     created_at: new Date().toISOString(),
-    // Store expiry in signer_ua field temporarily until we add expires_at column
-    // TODO: add expires_at column to signatures table
     signer_ua: expiresAt,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // TEMPORARY: return code in response for testing
-  // TODO: replace with Mobizon SMS before production
-  return NextResponse.json({ success: true, code })
+  // TODO: replace testCode with Mobizon SMS before production
+  return NextResponse.json({ success: true, testCode: code })
 }
