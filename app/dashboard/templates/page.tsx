@@ -12,6 +12,7 @@ import {
   Calendar,
   AlertCircle,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import type { Template, TemplateField } from '@/lib/types'
 
 const FIELD_TYPES: { value: TemplateField['type']; label: string }[] = [
@@ -31,16 +32,39 @@ function formatDate(iso: string) {
   })
 }
 
-// ─── Upload Modal ────────────────────────────────────────────────────────────
+// ─── Client-side text extraction ─────────────────────────────────────────────
+
+async function extractDocxText(file: File): Promise<string> {
+  const mammoth = await import('mammoth/mammoth.browser')
+  const arrayBuffer = await file.arrayBuffer()
+  const result = await mammoth.extractRawText({ arrayBuffer })
+  return result.value
+}
+
+async function extractPdfText(file: File): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist')
+  // Use CDN worker to avoid bundling the worker into the app
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+  const arrayBuffer = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+  let text = ''
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    text += content.items
+      .map((item) => ('str' in item ? item.str : ''))
+      .join(' ') + '\n'
+  }
+  return text
+}
+
+// ─── Upload Modal ─────────────────────────────────────────────────────────────
 
 type Step = 'upload' | 'edit'
 
 interface EditableField extends TemplateField {
   _id: string
-}
-
-function newField(): EditableField {
-  return { _id: crypto.randomUUID(), key: '', label: '', type: 'text', required: true }
 }
 
 interface UploadModalProps {
@@ -52,6 +76,7 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
   const [step, setStep] = useState<Step>('upload')
   const [dragging, setDragging] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [loadingMsg, setLoadingMsg] = useState('Извлекаем текст…')
   const [error, setError] = useState<string | null>(null)
 
   const [fields, setFields] = useState<EditableField[]>([])
@@ -76,22 +101,62 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
     }
 
     setLoading(true)
+    setLoadingMsg('Читаем файл…')
+
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch('/api/templates/extract', { method: 'POST', body: fd })
+      // Step 1: Extract text in browser (no server needed)
+      let text: string
+      try {
+        if (isDocx) {
+          text = await extractDocxText(file)
+        } else {
+          setLoadingMsg('Читаем PDF…')
+          text = await extractPdfText(file)
+        }
+      } catch (e) {
+        console.error('[extract] client parse error:', e)
+        throw new Error('Не удалось прочитать файл. Убедитесь что файл не повреждён.')
+      }
+
+      if (!text.trim()) {
+        throw new Error('Файл пустой или защищён паролем — текст не найден.')
+      }
+
+      // Step 2: Upload file to Supabase Storage from browser
+      setLoadingMsg('Загружаем файл…')
+      try {
+        const supabase = createClient()
+        const ext = isDocx ? 'docx' : 'pdf'
+        const path = `${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi, '_')}.${ext}`
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('templates')
+          .upload(path, file, { contentType: file.type, upsert: false })
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage.from('templates').getPublicUrl(uploadData.path)
+          setSourceUrl(urlData.publicUrl)
+        }
+      } catch {
+        // Storage upload non-critical — continue without it
+      }
+
+      // Step 3: Send text to server for AI field extraction
+      setLoadingMsg('AI анализирует договор…')
+      const res = await fetch('/api/templates/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error ?? 'Ошибка извлечения полей')
+      if (!res.ok) throw new Error(json.error ?? 'Ошибка AI-анализа')
 
       const extracted: TemplateField[] = json.fields ?? []
       setFields(extracted.map((f) => ({ ...f, _id: crypto.randomUUID() })))
-      setSourceUrl(json.source_file_url)
 
       const baseName = file.name.replace(/\.(docx|pdf)$/i, '')
       setTemplateName(baseName)
       setStep('edit')
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Ошибка при анализе файла')
+      setError(e instanceof Error ? e.message : 'Ошибка при обработке файла')
     } finally {
       setLoading(false)
     }
@@ -107,23 +172,17 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
     [handleFile]
   )
 
-  const updateField = (id: string, patch: Partial<EditableField>) => {
+  const updateField = (id: string, patch: Partial<EditableField>) =>
     setFields((prev) => prev.map((f) => (f._id === id ? { ...f, ...patch } : f)))
-  }
 
-  const removeField = (id: string) => {
+  const removeField = (id: string) =>
     setFields((prev) => prev.filter((f) => f._id !== id))
-  }
 
-  const addField = () => {
-    setFields((prev) => [...prev, newField()])
-  }
+  const addField = () =>
+    setFields((prev) => [...prev, { _id: crypto.randomUUID(), key: '', label: '', type: 'text', required: true }])
 
   const handleSave = async () => {
-    if (!templateName.trim()) {
-      setError('Укажите название шаблона')
-      return
-    }
+    if (!templateName.trim()) { setError('Укажите название шаблона'); return }
     setSaving(true)
     setError(null)
     try {
@@ -155,7 +214,6 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-2xl max-h-[92dvh] flex flex-col shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-[#0D1B2A]">
             {step === 'upload' ? 'Загрузить шаблон' : 'Настройка шаблона'}
@@ -166,7 +224,6 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          {/* Step 1: Upload */}
           {step === 'upload' && (
             <div className="space-y-4">
               <p className="text-sm text-[#6B7E92]">
@@ -178,15 +235,14 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
                 onDrop={onDrop}
                 onClick={() => !loading && fileRef.current?.click()}
                 className={`border-2 border-dashed rounded-2xl p-10 flex flex-col items-center gap-3 cursor-pointer transition-colors select-none ${
-                  dragging
-                    ? 'border-[#0F52BA] bg-[#D6E6F3]/30'
+                  dragging ? 'border-[#0F52BA] bg-[#D6E6F3]/30'
                     : 'border-[#A6C5D7] hover:border-[#0F52BA] hover:bg-[#D6E6F3]/20'
                 } ${loading ? 'pointer-events-none opacity-60' : ''}`}
               >
                 {loading ? (
                   <>
                     <Loader2 size={40} className="text-[#0F52BA] animate-spin" />
-                    <p className="text-sm font-medium text-[#0D1B2A]">AI анализирует договор…</p>
+                    <p className="text-sm font-medium text-[#0D1B2A]">{loadingMsg}</p>
                     <p className="text-xs text-[#6B7E92]">Обычно занимает 10–30 секунд</p>
                   </>
                 ) : (
@@ -209,7 +265,6 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
             </div>
           )}
 
-          {/* Step 2: Edit fields */}
           {step === 'edit' && (
             <div className="space-y-5">
               <div className="space-y-3">
@@ -250,7 +305,6 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
                     </span>
                   )}
                 </div>
-
                 <div className="space-y-2">
                   {fields.map((field) => (
                     <FieldRow
@@ -261,7 +315,6 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
                     />
                   ))}
                 </div>
-
                 <button
                   type="button"
                   onClick={addField}
@@ -304,7 +357,7 @@ function UploadModal({ onClose, onSaved }: UploadModalProps) {
   )
 }
 
-// ─── Field Row ───────────────────────────────────────────────────────────────
+// ─── Field Row ────────────────────────────────────────────────────────────────
 
 interface EditableField extends TemplateField {
   _id: string
@@ -317,8 +370,6 @@ interface FieldRowProps {
 }
 
 function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
-  const isDate = field.type === 'date'
-
   return (
     <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 group">
       <div className="flex-1 min-w-0">
@@ -329,13 +380,12 @@ function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
           placeholder="Название поля"
           className="w-full bg-transparent text-sm text-[#0D1B2A] placeholder:text-[#A6C5D7] focus:outline-none"
         />
-        {isDate && (
+        {field.type === 'date' && (
           <span className="flex items-center gap-1 text-[10px] text-[#0F7B55] mt-0.5">
             <Calendar size={10} /> автозаполняется при отправке
           </span>
         )}
       </div>
-
       <div className="relative shrink-0">
         <select
           value={field.type}
@@ -348,20 +398,16 @@ function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
         </select>
         <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#6B7E92] pointer-events-none" />
       </div>
-
       <button
         type="button"
         onClick={() => onChange({ required: !field.required })}
         title={field.required ? 'Обязательное' : 'Необязательное'}
         className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-colors ${
-          field.required
-            ? 'bg-[#0F52BA]/10 text-[#0F52BA]'
-            : 'bg-gray-200 text-[#6B7E92]'
+          field.required ? 'bg-[#0F52BA]/10 text-[#0F52BA]' : 'bg-gray-200 text-[#6B7E92]'
         }`}
       >
         *
       </button>
-
       <button
         type="button"
         onClick={onRemove}
@@ -373,7 +419,7 @@ function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
   )
 }
 
-// ─── Template Card ───────────────────────────────────────────────────────────
+// ─── Template Card ────────────────────────────────────────────────────────────
 
 interface TemplateCardProps {
   template: Template
@@ -412,7 +458,6 @@ function TemplateCard({ template, onDelete }: TemplateCardProps) {
         onClick={handleDelete}
         disabled={deleting}
         className="shrink-0 p-2 rounded-xl text-[#6B7E92] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
-        title="Удалить шаблон"
       >
         {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
       </button>
@@ -426,7 +471,7 @@ function pluralFields(n: number) {
   return 'полей'
 }
 
-// ─── Empty State ─────────────────────────────────────────────────────────────
+// ─── Empty State ──────────────────────────────────────────────────────────────
 
 function EmptyTemplates({ onUpload }: { onUpload: () => void }) {
   return (
@@ -449,7 +494,7 @@ function EmptyTemplates({ onUpload }: { onUpload: () => void }) {
   )
 }
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<Template[]>([])
@@ -467,10 +512,6 @@ export default function TemplatesPage() {
   const handleSaved = (template: Template) => {
     setTemplates((prev) => [template, ...prev])
     setShowModal(false)
-  }
-
-  const handleDelete = (id: string) => {
-    setTemplates((prev) => prev.filter((t) => t.id !== id))
   }
 
   return (
@@ -499,7 +540,7 @@ export default function TemplatesPage() {
       ) : (
         <div className="space-y-3">
           {templates.map((t) => (
-            <TemplateCard key={t.id} template={t} onDelete={handleDelete} />
+            <TemplateCard key={t.id} template={t} onDelete={(id) => setTemplates((p) => p.filter((x) => x.id !== id))} />
           ))}
         </div>
       )}

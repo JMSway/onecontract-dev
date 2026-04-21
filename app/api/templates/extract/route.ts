@@ -1,55 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { TemplateField } from '@/lib/types'
-import mammoth from 'mammoth'
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  let formData: FormData
+  let body: { text?: string }
   try {
-    formData = await request.formData()
+    body = await request.json()
   } catch {
-    return NextResponse.json({ error: 'Invalid form data' }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  const file = formData.get('file') as File | null
-  if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
-
-  const isPdf = file.type === 'application/pdf'
-  const isDocx = file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  if (!isPdf && !isDocx) {
-    return NextResponse.json({ error: 'Unsupported file type. Use .docx or .pdf' }, { status: 400 })
+  const { text } = body
+  if (!text?.trim()) {
+    return NextResponse.json({ error: 'No text provided' }, { status: 400 })
   }
-  if (file.size > 10 * 1024 * 1024) {
-    return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 })
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer())
-
-  let text: string
-  try {
-    if (isDocx) {
-      const result = await mammoth.extractRawText({ buffer })
-      text = result.value
-    } else {
-      const { default: pdfParse } = await import('pdf-parse')
-      const result = await pdfParse(buffer)
-      text = result.text
-    }
-  } catch (e) {
-    console.error('[extract] parse error:', e)
-    return NextResponse.json({ error: 'Failed to parse file' }, { status: 422 })
-  }
-
-  const excerpt = text.slice(0, 4000)
 
   const apiKey = process.env.OPENROUTER_API_KEY
   if (!apiKey) {
     return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
   }
+
+  const excerpt = text.slice(0, 4000)
 
   const prompt = `Ты анализируешь шаблон договора на русском языке.
 Найди все места где нужно вписать данные: пустые строки (___), скобки [ФИО], «___», поля типа "дата:", "сумма:", "ФИО:", "наименование:", "телефон:".
@@ -61,18 +36,17 @@ export async function POST(request: NextRequest) {
 Текст договора:
 ${excerpt}`
 
-  // Models ordered by quality. All free (:free suffix = $0 per request).
-  // If a provider is rate-limited (429) or unavailable (503/502) we skip to the next.
+  // Models ordered by reliability. All free ($0 per request).
+  // On 429/502/503/504 (provider overloaded) — try next model immediately.
   const models = [
-    'google/gemma-3-12b-it:free',    // Google AI Studio — works well, good Russian
-    'google/gemma-3-27b-it:free',    // Larger gemma, better quality
-    'google/gemma-3-4b-it:free',     // Smallest gemma, fastest
-    'meta-llama/llama-3.3-70b-instruct:free', // Best overall quality
-    'google/gemma-4-26b-a4b-it:free', // Newer gemma 4
-    'nvidia/nemotron-3-super-120b-a12b:free', // Nvidia, strong model
+    'google/gemma-3-12b-it:free',
+    'google/gemma-3-27b-it:free',
+    'google/gemma-3-4b-it:free',
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'google/gemma-4-26b-a4b-it:free',
+    'nvidia/nemotron-3-super-120b-a12b:free',
   ]
 
-  // Statuses that mean "provider overloaded — try next model immediately"
   const RETRY_STATUSES = new Set([429, 502, 503, 504])
 
   let fields: TemplateField[] = []
@@ -99,7 +73,6 @@ ${excerpt}`
           console.warn(`[extract] ${model} rate-limited (${aiRes.status}), trying next`)
           continue
         }
-        // 400/401/404 — model config error, also skip
         console.warn(`[extract] ${model} error ${aiRes.status}, trying next`)
         continue
       }
@@ -111,46 +84,20 @@ ${excerpt}`
         continue
       }
 
-      const parsed = parseAIFields(content)
-      if (parsed.length === 0) {
-        // Model responded but returned no fields — still usable (no fields found)
-        fields = []
-        break
-      }
-
-      fields = parsed
-      console.info(`[extract] success with model ${model}, found ${fields.length} fields`)
+      fields = parseAIFields(content)
+      console.info(`[extract] success with ${model}, found ${fields.length} fields`)
       break
     } catch (e) {
       console.warn(`[extract] ${model} threw:`, e)
     }
   }
 
-  // Upload original file to Supabase Storage
-  let source_file_url: string | undefined
-  try {
-    const ext = isDocx ? 'docx' : 'pdf'
-    const path = `${user.id}/${Date.now()}.${ext}`
-    const { error: uploadError } = await supabase.storage
-      .from('templates')
-      .upload(path, buffer, { contentType: file.type })
-
-    if (!uploadError) {
-      const { data: urlData } = supabase.storage.from('templates').getPublicUrl(path)
-      source_file_url = urlData.publicUrl
-    }
-  } catch {
-    // Storage upload is non-critical
-  }
-
-  return NextResponse.json({ fields, source_file_url })
+  return NextResponse.json({ fields })
 }
 
 function parseAIFields(content: string): TemplateField[] {
   try {
-    // Strip markdown code blocks if present
     const clean = content.replace(/```(?:json)?/g, '').replace(/```/g, '').trim()
-    // Find JSON array in the response
     const match = clean.match(/\[[\s\S]*\]/)
     if (!match) return []
     const parsed = JSON.parse(match[0])
