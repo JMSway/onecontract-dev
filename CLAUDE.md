@@ -1,22 +1,15 @@
 # OneContract
 
 ## Deployment
-Repositories:
-- **onecontract-dev** → active development (this repo). ALL regular work, commits, and pushes MUST go here.
-- **onecontract** → production clean repo (no CLAUDE.md, no AI markers)
+PRIMARY REPO: JMSway/onecontract-dev (this repo)
+PRIMARY URL: https://onecontract-dev.pages.dev
+DOMAIN: onecontract.kz (DNS указывает сюда же)
 
-Hosting: Cloudflare Pages (NEVER use Vercel)
-Domain: onecontract.kz
-Cloudflare project: onecontract-2of.pages.dev (production)
-
-Deploy command: ./scripts/deploy-production.sh
-Auto-deploy: Cloudflare watches onecontract repo → rebuilds on every push automatically
-
-Cloudflare build settings (BOTH projects — onecontract-dev AND onecontract):
-  Build command: npx opennextjs-cloudflare build
-  Build output directory: .open-next/assets
-  Node version: 20
-  Compatibility flag: nodejs_compat
+Hosting: Cloudflare Pages
+Build: npx opennextjs-cloudflare build
+Output: .open-next/assets
+Node: 20
+Compatibility flag: nodejs_compat
 
 **IMPORTANT:** `@cloudflare/next-on-pages` is deprecated and incompatible
 with Next.js 16. Never use it. Always use `@opennextjs/cloudflare`.
@@ -34,11 +27,10 @@ Environment variables (set in Cloudflare Pages dashboard):
   NEXT_PUBLIC_SUPABASE_URL
   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-Supabase project: onecontract-production
-Supabase URL: https://zideehxygpnehkjeeqzr.supabase.co
+Supabase: https://zideehxygpnehkjeeqzr.supabase.co
 Supabase Redirect URLs configured:
+  https://onecontract-dev.pages.dev/**
   https://onecontract.kz/**
-  https://onecontract-2of.pages.dev/**
   http://localhost:3000/**
 
 Google OAuth: configured via Google Cloud Console
@@ -46,6 +38,11 @@ Google OAuth: configured via Google Cloud Console
   Client: OneContract Web
   Status: Published (all users can sign in)
   Callback: https://zideehxygpnehkjeeqzr.supabase.co/auth/v1/callback
+
+Production repo (JMSway/onecontract) — FROZEN.
+Will be used only before diploma defense to create
+clean version without AI markers.
+DO NOT push to production repo during development.
 
 **CRITICAL DEPLOYMENT RULES FOR AI:**
 1. **Always push to DEV:** When completing tasks, you MUST ALWAYS `git push` to `onecontract-dev`. This triggers the dev deployment so the user can verify changes.

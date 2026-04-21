@@ -1,4 +1,7 @@
 #!/bin/bash
+# ЗАМОРОЖЕН — запускать только перед защитой диплома
+# Обычная разработка идёт в onecontract-dev
+
 set -e
 
 echo "🚀 Деплой в production (Cloudflare Pages)..."
