@@ -41,13 +41,23 @@ export async function GET(
   let sourceFileUrl: string | null = null
   if (template?.source_file_url) {
     const stored = template.source_file_url
-    const match = stored.match(/\/templates\/([^?]+)/)
-    const path = match?.[1]
+    const parts = stored.split('/templates/')
+    const rawPath = parts.length > 1 ? parts[parts.length - 1].split('?')[0] : null
+    const path = rawPath ? decodeURIComponent(rawPath) : null
     if (path) {
-      const { data: fresh } = await supabase.storage
+      const { data: fresh, error: signErr } = await supabase.storage
         .from('templates')
-        .createSignedUrl(decodeURIComponent(path), 60 * 60)
+        .createSignedUrl(path, 60 * 60)
       sourceFileUrl = fresh?.signedUrl ?? null
+      if (!sourceFileUrl) {
+        await supabase.from('audit_log').insert({
+          contract_id: contractId,
+          action: 'source_file_url_refresh_failed',
+          actor: 'system',
+          metadata: { path, error: signErr?.message ?? 'unknown' },
+          created_at: new Date().toISOString(),
+        })
+      }
     }
   }
 

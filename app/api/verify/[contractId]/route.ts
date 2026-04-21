@@ -8,7 +8,6 @@ export async function GET(
   const { contractId } = await params
   const supabase = await createClient()
 
-  // Fetch contract with template and org via joins
   const { data: contract } = await supabase
     .from('contracts')
     .select('id, status, signed_at, created_at, recipient_name, template_id, org_id')
@@ -16,14 +15,22 @@ export async function GET(
     .maybeSingle()
 
   if (!contract) {
-    return NextResponse.json({ error: 'Договор не найден' }, { status: 404 })
+    return NextResponse.json({ error: 'not_found' }, { status: 404 })
   }
 
-  // Fetch template name and org name separately (RLS allows these)
   const [templateRes, orgRes] = await Promise.all([
     supabase.from('templates').select('name').eq('id', contract.template_id).maybeSingle(),
     supabase.from('organizations').select('name').eq('id', contract.org_id).maybeSingle(),
   ])
+
+  // Fresh signed URL so the signer can re-download the PDF weeks later.
+  let pdfUrl: string | null = null
+  if (contract.status === 'signed') {
+    const { data: fresh } = await supabase.storage
+      .from('contracts')
+      .createSignedUrl(`${contractId}.pdf`, 7 * 24 * 60 * 60)
+    pdfUrl = fresh?.signedUrl ?? null
+  }
 
   return NextResponse.json({
     id: contract.id,
@@ -34,5 +41,6 @@ export async function GET(
     template_name: templateRes.data?.name ?? 'Договор',
     org_name: orgRes.data?.name ?? 'Организация',
     sign_method: 'sms_otp',
+    pdf_url: pdfUrl,
   })
 }

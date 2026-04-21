@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckCircle2, XCircle, FileText, Loader2, Shield } from 'lucide-react'
+import { CheckCircle2, XCircle, FileText, Loader2, Shield, Download, Share2 } from 'lucide-react'
 
 type VerifyData = {
   id: string
@@ -13,6 +13,7 @@ type VerifyData = {
   template_name: string
   org_name: string
   sign_method: string
+  pdf_url: string | null
 }
 
 function formatDate(iso: string | null) {
@@ -31,17 +32,51 @@ export default function VerifyPage() {
   const [data, setData] = useState<VerifyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/verify/${contractId}`)
-      .then((r) => {
-        if (r.status === 404) { setNotFound(true); return null }
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 8000)
+    fetch(`/api/verify/${contractId}`, { signal: controller.signal })
+      .then(async (r) => {
+        if (!r.ok) { setNotFound(true); return null }
         return r.json()
       })
       .then((d) => { if (d) setData(d) })
       .catch(() => setNotFound(true))
-      .finally(() => setLoading(false))
+      .finally(() => {
+        clearTimeout(timeout)
+        setLoading(false)
+      })
+    return () => {
+      clearTimeout(timeout)
+      controller.abort()
+    }
   }, [contractId])
+
+  const handleShare = async () => {
+    if (!data) return
+    const shareUrl = data.pdf_url ?? `${window.location.origin}/verify/${contractId}`
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await navigator.share({
+          title: 'Подписанный договор',
+          text: data.pdf_url ? 'Подписанный договор (PDF)' : 'Проверка подписи договора',
+          url: shareUrl,
+        })
+        return
+      } catch {
+        /* user cancelled */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+    } catch {
+      /* ignore */
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
@@ -107,6 +142,29 @@ export default function VerifyPage() {
                   <span className="text-sm font-medium text-[#0D1B2A] text-right">{value}</span>
                 </div>
               ))}
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3">
+              {data.pdf_url && (
+                <a
+                  href={data.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download={`contract-${contractId.slice(0, 8)}.pdf`}
+                  className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Download size={16} strokeWidth={1.5} />
+                  Скачать PDF
+                </a>
+              )}
+              <button
+                onClick={handleShare}
+                className="w-full h-12 border border-[#A6C5D7] text-[#0D1B2A] rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#D6E6F3]/20 transition-colors"
+              >
+                <Share2 size={16} strokeWidth={1.5} />
+                {linkCopied ? 'Ссылка скопирована!' : 'Поделиться'}
+              </button>
             </div>
 
             {/* Legal note */}

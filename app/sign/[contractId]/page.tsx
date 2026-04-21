@@ -2,11 +2,17 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import {
-  FileText, CheckCircle2, Loader2,
+  FileText, CheckCircle2, Loader2, Download,
   Lock, Shield, Share2, X, ChevronRight,
 } from 'lucide-react'
 import type { TemplateField } from '@/lib/types'
+
+const DocumentPreview = dynamic(
+  () => import('@/components/templates/DocumentPreview').then(m => ({ default: m.DocumentPreview })),
+  { ssr: false },
+)
 
 type SignStep = 'form' | 'verify' | 'otp' | 'success'
 
@@ -93,6 +99,8 @@ export default function SignPage() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
+  const [pdfGenerating, setPdfGenerating] = useState(false)
+  const [pdfError, setPdfError] = useState<string | null>(null)
 
   const verifyRef = useRef<HTMLDivElement>(null)
 
@@ -237,11 +245,22 @@ export default function SignPage() {
     }
 
     const handleRetryPdf = async () => {
+      if (pdfGenerating) return
+      setPdfGenerating(true)
+      setPdfError(null)
       try {
         const r = await fetch(`/api/sign/${contractId}/regenerate-pdf`, { method: 'POST' })
         const d = await r.json()
-        if (d.pdf_url) setPdfUrl(d.pdf_url)
-      } catch { /* ignore */ }
+        if (!r.ok || !d.pdf_url) {
+          setPdfError(d.error || d.details || 'Не удалось сгенерировать PDF')
+          return
+        }
+        setPdfUrl(d.pdf_url)
+      } catch {
+        setPdfError('Ошибка соединения. Попробуйте ещё раз.')
+      } finally {
+        setPdfGenerating(false)
+      }
     }
 
     return (
@@ -277,17 +296,30 @@ export default function SignPage() {
                 download={`contract-${contractId.slice(0, 8)}.pdf`}
                 className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
               >
-                <FileText size={16} strokeWidth={1.5} />
+                <Download size={16} strokeWidth={1.5} />
                 Скачать PDF
               </a>
             ) : (
               <button
                 onClick={handleRetryPdf}
-                className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+                disabled={pdfGenerating}
+                className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <FileText size={16} strokeWidth={1.5} />
-                Сгенерировать PDF
+                {pdfGenerating ? (
+                  <>
+                    <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+                    Генерация PDF…
+                  </>
+                ) : (
+                  <>
+                    <FileText size={16} strokeWidth={1.5} />
+                    Сгенерировать PDF
+                  </>
+                )}
               </button>
+            )}
+            {pdfError && (
+              <p className="text-xs text-red-600 text-center">{pdfError}</p>
             )}
             <button
               onClick={handleShare}
@@ -620,6 +652,33 @@ export default function SignPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+              {template.source_file_url ? (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
+                    Оригинал документа
+                  </p>
+                  <DocumentPreview
+                    file={null}
+                    fileUrl={template.source_file_url}
+                    fileKind={template.source_file_url.toLowerCase().includes('.docx') ? 'docx' : 'pdf'}
+                  />
+                  <a
+                    href={template.source_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
+                  >
+                    <FileText size={13} strokeWidth={1.5} />
+                    Открыть в новой вкладке
+                  </a>
+                </div>
+              ) : (
+                <div className="border border-[#D6E6F3] rounded-xl px-4 py-6 bg-[#F8FAFC] text-center">
+                  <FileText size={24} className="text-[#A6C5D7] mx-auto mb-2" strokeWidth={1.5} />
+                  <p className="text-sm text-[#6B7E92]">Оригинал документа недоступен.</p>
+                  <p className="text-xs text-[#A6C5D7] mt-0.5">См. условия ниже.</p>
+                </div>
+              )}
               {managerFields.some((f) => contract.data[f.key]) && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-3">
@@ -637,28 +696,6 @@ export default function SignPage() {
                       )
                     })}
                   </div>
-                </div>
-              )}
-              {template.source_file_url && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
-                    Оригинал документа
-                  </p>
-                  <iframe
-                    src={template.source_file_url}
-                    className="w-full rounded-xl border border-[#D6E6F3] bg-[#F8FAFC]"
-                    style={{ height: '60vh', minHeight: '400px' }}
-                    title="Шаблон договора"
-                  />
-                  <a
-                    href={template.source_file_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
-                  >
-                    <FileText size={13} strokeWidth={1.5} />
-                    Открыть в новой вкладке
-                  </a>
                 </div>
               )}
             </div>

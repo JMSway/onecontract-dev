@@ -16,14 +16,17 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
   const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
-    if (fileKind !== 'docx' || !file) return
+    if (fileKind !== 'docx') return
+    if (!file && !fileUrl) return
     let cancelled = false
     setDocxLoading(true)
     setDocxError(null)
     ;(async () => {
       try {
         const mammoth = await import('mammoth/mammoth.browser')
-        const arrayBuffer = await file.arrayBuffer()
+        const arrayBuffer = file
+          ? await file.arrayBuffer()
+          : await (await fetch(fileUrl!)).arrayBuffer()
         const result = await mammoth.convertToHtml({ arrayBuffer })
         if (!cancelled) setDocxHtml(result.value)
       } catch (e) {
@@ -38,7 +41,7 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
     return () => {
       cancelled = true
     }
-  }, [file, fileKind])
+  }, [file, fileUrl, fileKind])
 
   useEffect(() => {
     if (!expanded) return
