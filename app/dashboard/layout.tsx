@@ -9,9 +9,13 @@ import type { DashboardUser, UserRole } from '@/lib/dashboard/types'
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient()
+
+  // getSession() reads from cookie (no network). Middleware already verified
+  // the session token via getUser() for /dashboard/* routes, so this is safe.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   if (!user) redirect('/auth/login')
 
