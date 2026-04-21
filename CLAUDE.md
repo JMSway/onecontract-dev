@@ -1,13 +1,14 @@
 # OneContract
 
-## Deployment
-Two repositories:
-- **onecontract-dev** (this repo): development, has CLAUDE.md and AI tooling
-- **onecontract** (production): clean code, no AI markers, connected to domain
+## Deployment (Dual Environment on Cloudflare Pages)
+Two explicit Cloudflare projects linked to two GitHub repositories:
+- **onecontract-dev** (this repo): Development & Testing environment (AI playground). ALL regular work, commits, and pushes MUST go here. Pushing here automatically updates the dev URL.
+- **onecontract** (production): Production environment, strictly connected to the custom domain (onecontract.kz). Clean code, scrubbed from ALL AI markers.
 
-To deploy to production run: ./scripts/deploy-production.sh
-This script: copies project → removes CLAUDE.md, AGENTS.md → strips AI comments → pushes to onecontract repo with human author.
-NEVER push CLAUDE.md or AGENTS.md to production repo.
+**CRITICAL DEPLOYMENT RULES FOR AI:**
+1. **Always push to DEV:** When completing tasks, you MUST ALWAYS `git push` to `onecontract-dev`. This triggers the dev deployment so the user can verify changes.
+2. **NEVER touch PRODUCTION automatically:** You must NEVER push directly or try to sync code to the `onecontract` production repo unless the user explicitly commands: "Deploy to production".
+3. **Deploying to production:** When given the explicit command to deploy, ONLY use the `scripts/deploy-production.sh` script. This script perfectly handles the stripping of AI artifacts and pushes securely to production.
 
 Electronic contract platform for educational centers in Kazakhstan.
 Language schools as anchor segment → IT courses & online schools in wave 2.
@@ -20,7 +21,7 @@ We're NOT competing with existing EDO (TrustMe, Documentolog). We CREATE contrac
 - **Framework**: Next.js 14+ (App Router, TypeScript)
 - **Styling**: Tailwind CSS
 - **Database**: Supabase (PostgreSQL + Auth + Storage + RLS)
-- **Deploy**: Vercel (frontend + API routes)
+- **Deploy**: Cloudflare Pages via @opennextjs/cloudflare (NOT Vercel)
 - **PDF**: pdf-lib (generation), react-pdf (viewer)
 - **SMS**: Mobizon.kz API or sms.kz
 - **e-Signature**: SIGEX API (eGov QR, free tier, 40 docs/month)

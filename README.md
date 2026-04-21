@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16+-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://typescriptlang.org)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green?logo=supabase)](https://supabase.com)
-[![Vercel](https://img.shields.io/badge/Deploy-Vercel-black?logo=vercel)](https://vercel.com)
+[![Cloudflare](https://img.shields.io/badge/Deploy-Cloudflare_Pages-orange?logo=cloudflare)](https://pages.cloudflare.com)
 
 ---
 
@@ -34,7 +34,7 @@
 | Стили | Tailwind CSS |
 | Анимации | Framer Motion |
 | База данных | Supabase (PostgreSQL + Auth + Storage + RLS) |
-| Деплой | Vercel |
+| Деплой | Cloudflare Pages |
 | PDF | pdf-lib (генерация), react-pdf (просмотр) |
 | SMS | Mobizon.kz / sms.kz |
 | Электронная подпись | SIGEX API (eGov QR, бесплатный уровень — 40 докум./мес.) |
@@ -212,7 +212,7 @@ SIGEX_API_URL=https://sigex.kz/api
 - [ ] Создание и управление шаблонами (AI-powered)
 - [ ] Создание и отправка договоров
 - [ ] Публичная страница подписания (SMS OTP + eGov QR)
-- [ ] Деплой на Vercel
+- [ ] Деплой на Cloudflare Pages
 
 ### Фаза 2
 - [ ] WhatsApp Business API
