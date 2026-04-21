@@ -12,10 +12,23 @@ Cloudflare project: onecontract-2of.pages.dev (production)
 Deploy command: ./scripts/deploy-production.sh
 Auto-deploy: Cloudflare watches onecontract repo → rebuilds on every push automatically
 
-Cloudflare build settings:
-  Build command: npx @cloudflare/next-on-pages@1
-  Output: .vercel/output/static
+Cloudflare build settings (BOTH projects — onecontract-dev AND onecontract):
+  Build command: npx opennextjs-cloudflare build
+  Build output directory: .open-next/assets
+  Node version: 20
   Compatibility flag: nodejs_compat
+
+**IMPORTANT:** `@cloudflare/next-on-pages` is deprecated and incompatible
+with Next.js 16. Never use it. Always use `@opennextjs/cloudflare`.
+
+Worker size limit on Cloudflare free plan: **3 MiB gzipped**.
+Before committing dashboard changes, verify bundle size with:
+  npm run check:cf
+If over 3 MiB: remove heavy client libs from protected pages (framer-motion,
+chart libs, rich text editors). Use CSS animations instead. Landing pages
+are prerendered static HTML — heavy libs there don't count toward Worker size.
+
+NEVER commit build artifacts (.open-next, .next, .vercel, .wrangler).
 
 Environment variables (set in Cloudflare Pages dashboard):
   NEXT_PUBLIC_SUPABASE_URL
