@@ -19,7 +19,7 @@ type ContractData = {
     sent_via: string | null
     data: Record<string, string>
   }
-  template: { name: string; fields: TemplateField[] }
+  template: { name: string; fields: TemplateField[]; source_file_url: string | null }
   org: { name: string }
 }
 
@@ -76,6 +76,7 @@ export default function SignPage() {
   const [submitting, setSubmitting] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null)
 
   const verifyRef = useRef<HTMLDivElement>(null)
 
@@ -135,6 +136,7 @@ export default function SignPage() {
           day: 'numeric', month: 'long', year: 'numeric',
           hour: '2-digit', minute: '2-digit',
         }))
+        if (d.pdf_url) setPdfUrl(d.pdf_url)
         setStep('success')
       } else {
         const newAttempts = attemptsLeft - 1
@@ -227,12 +229,24 @@ export default function SignPage() {
           </div>
 
           <div className="space-y-3 w-full">
-            <button
-              disabled
-              className="w-full h-12 bg-[#D6E6F3] text-[#6B7E92] rounded-xl text-sm font-semibold cursor-not-allowed"
-            >
-              Скачать PDF — Скоро
-            </button>
+            {pdfUrl ? (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
+              >
+                <FileText size={16} strokeWidth={1.5} />
+                Скачать PDF
+              </a>
+            ) : (
+              <button
+                disabled
+                className="w-full h-12 bg-[#D6E6F3] text-[#6B7E92] rounded-xl text-sm font-semibold cursor-not-allowed"
+              >
+                Скачать PDF — Скоро
+              </button>
+            )}
             <button
               onClick={handleShare}
               className="w-full h-12 border border-[#A6C5D7] text-[#0D1B2A] rounded-xl text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#D6E6F3]/20 transition-colors"
@@ -290,7 +304,27 @@ export default function SignPage() {
     }
   }
 
+  const fillOtpFromString = (raw: string, startIndex = 0) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 6 - startIndex)
+    if (!digits) return
+    const next = [...otpDigits]
+    for (let k = 0; k < digits.length; k++) {
+      next[startIndex + k] = digits[k]
+    }
+    setOtpDigits(next)
+    const lastFilled = Math.min(startIndex + digits.length - 1, 5)
+    const focusIndex = next.every((d) => d) ? lastFilled : Math.min(lastFilled + 1, 5)
+    otpRefs.current[focusIndex]?.focus()
+    if (next.every((d) => d)) {
+      handleVerify(next.join(''))
+    }
+  }
+
   const handleOtpInput = (i: number, val: string) => {
+    if (val.length > 1) {
+      fillOtpFromString(val, i)
+      return
+    }
     const digit = val.replace(/\D/g, '').slice(-1)
     const next = [...otpDigits]
     next[i] = digit
@@ -301,6 +335,13 @@ export default function SignPage() {
     if (digit && next.every((d) => d)) {
       handleVerify(next.join(''))
     }
+  }
+
+  const handleOtpPaste = (i: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text')
+    if (!text) return
+    e.preventDefault()
+    fillOtpFromString(text, i)
   }
 
   const handleOtpKey = (i: number, e: React.KeyboardEvent) => {
@@ -335,29 +376,70 @@ export default function SignPage() {
           </div>
         </div>
 
-        {/* Block 2 — Manager fields */}
-        {managerFields.some((f) => contract.data[f.key]) && (
-          <div className="bg-[#F8FAFC] rounded-2xl p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-3">
-              Условия договора
-            </p>
-            <div>
-              {managerFields.map((f) => {
-                const val = contract.data[f.key]
-                if (!val) return null
-                return (
-                  <div
-                    key={f.key}
-                    className="flex justify-between items-start gap-3 py-2 border-b border-[#F0F4F8] last:border-0"
-                  >
-                    <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
-                    <span className="text-sm font-medium text-[#0D1B2A] text-right">{val}</span>
+        {/* Block 2 — Contract preview toggle (shown before client form) */}
+        <div className="border border-[#D6E6F3] rounded-2xl shadow-sm overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setShowDetails((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[#0D1B2A] hover:bg-[#D6E6F3]/20 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <FileText size={15} strokeWidth={1.5} />
+              {showDetails ? 'Свернуть' : 'Посмотреть полный договор'}
+            </span>
+            {showDetails
+              ? <ChevronUp size={16} strokeWidth={1.5} />
+              : <ChevronDown size={16} strokeWidth={1.5} />}
+          </button>
+          {showDetails && (
+            <div className="border-t border-[#D6E6F3] bg-white pb-4 space-y-4">
+              {managerFields.some((f) => contract.data[f.key]) && (
+                <div className="px-4 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-3">
+                    Условия договора
+                  </p>
+                  <div>
+                    {managerFields.map((f) => {
+                      const val = contract.data[f.key]
+                      if (!val) return null
+                      return (
+                        <div
+                          key={f.key}
+                          className="flex justify-between items-start gap-3 py-2 border-b border-[#F0F4F8] last:border-0"
+                        >
+                          <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
+                          <span className="text-sm font-medium text-[#0D1B2A] text-right">{val}</span>
+                        </div>
+                      )
+                    })}
                   </div>
-                )
-              })}
+                </div>
+              )}
+              {template.source_file_url && (
+                <div className="px-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
+                    Оригинал шаблона
+                  </p>
+                  <iframe
+                    src={template.source_file_url}
+                    className="w-full rounded-xl border border-[#D6E6F3]"
+                    style={{ height: '480px' }}
+                    title="Шаблон договора"
+                  />
+                  <a
+                    href={template.source_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
+                  >
+                    <FileText size={13} strokeWidth={1.5} />
+                    Скачать шаблон
+                  </a>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Block 3 — Client fields */}
         {clientFields.length > 0 && (
@@ -407,36 +489,6 @@ export default function SignPage() {
             })}
           </div>
         )}
-
-        {/* Block 4 — Contract preview toggle */}
-        <div className="border border-[#D6E6F3] rounded-2xl shadow-sm overflow-hidden">
-          <button
-            type="button"
-            onClick={() => setShowDetails((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[#0D1B2A] hover:bg-[#D6E6F3]/20 transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              <FileText size={15} strokeWidth={1.5} />
-              {showDetails ? 'Свернуть' : 'Посмотреть полный договор'}
-            </span>
-            {showDetails
-              ? <ChevronUp size={16} strokeWidth={1.5} />
-              : <ChevronDown size={16} strokeWidth={1.5} />}
-          </button>
-          {showDetails && (
-            <div className="border-t border-[#D6E6F3] px-4 py-4 space-y-2.5 bg-white">
-              <div className="text-sm font-semibold text-[#0D1B2A] mb-3">{org.name}</div>
-              {template.fields.map((f) => (
-                <div key={f.key} className="flex justify-between items-start gap-3">
-                  <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
-                  <span className="text-xs font-medium text-[#0D1B2A] text-right">
-                    {contract.data[f.key] || clientData[f.key] || '—'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Block 5 — Two checkboxes */}
         <div className="space-y-3">
@@ -518,9 +570,11 @@ export default function SignPage() {
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
+                      autoComplete={i === 0 ? 'one-time-code' : 'off'}
                       value={d}
                       onChange={(e) => handleOtpInput(i, e.target.value)}
                       onKeyDown={(e) => handleOtpKey(i, e)}
+                      onPaste={(e) => handleOtpPaste(i, e)}
                       disabled={attemptsLeft <= 0}
                       className="w-11 h-14 text-2xl text-center font-bold border border-[#A6C5D7] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 focus:border-[#0F52BA] transition-colors disabled:opacity-40"
                     />

@@ -27,6 +27,8 @@ function toDashboardContract(c: Contract): DashboardContract {
     channel: c.sent_via ?? 'email',
     sentAt: c.sent_at ?? null,
     createdAt: c.created_at,
+    pdfUrl: c.pdf_url ?? null,
+    retentionUntil: c.retention_until ?? null,
   }
 }
 
@@ -339,7 +341,11 @@ export default function DashboardOverviewPage() {
         ) : (
           <div>
             {contracts.slice(0, 5).map((c) => (
-              <ContractRow key={c.id} contract={toDashboardContract(c)} />
+              <ContractRow
+                key={c.id}
+                contract={toDashboardContract(c)}
+                onDelete={(id) => setContracts((prev) => prev.filter((x) => x.id !== id))}
+              />
             ))}
           </div>
         )}

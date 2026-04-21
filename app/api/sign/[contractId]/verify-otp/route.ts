@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash, createHmac } from 'crypto'
+import QRCode from 'qrcode'
 import { createClient } from '@/lib/supabase/server'
+import { generateSignedContractPdf } from '@/lib/pdf'
 
 export async function POST(
   request: NextRequest,
@@ -11,7 +13,7 @@ export async function POST(
 
   const { data: contract } = await supabase
     .from('contracts')
-    .select('id, status, org_id, recipient_phone, template_id')
+    .select('id, status, org_id, recipient_phone, template_id, data')
     .eq('id', contractId)
     .maybeSingle()
 
@@ -62,7 +64,6 @@ export async function POST(
 
   const now = new Date().toISOString()
 
-  // Generate seal hash (HMAC-SHA256 with server secret)
   const secret = process.env.SEAL_SECRET
   if (!secret) {
     return NextResponse.json({ error: 'Server misconfigured (SEAL_SECRET)' }, { status: 500 })
@@ -82,10 +83,14 @@ export async function POST(
     null
   const signerUa = request.headers.get('user-agent') ?? null
 
+  const retentionUntil = new Date(
+    Date.now() + 5 * 365.25 * 24 * 60 * 60 * 1000
+  ).toISOString()
+
   await Promise.all([
     supabase
       .from('contracts')
-      .update({ status: 'signed', signed_at: now, pdf_hash: sealHash })
+      .update({ status: 'signed', signed_at: now, pdf_hash: sealHash, retention_until: retentionUntil })
       .eq('id', contractId),
     supabase
       .from('signatures')
@@ -100,5 +105,62 @@ export async function POST(
     }),
   ])
 
-  return NextResponse.json({ success: true })
+  // Generate and upload signed PDF (non-fatal)
+  let pdfUrl: string | null = null
+  try {
+    const [templateRes, orgRes] = await Promise.all([
+      supabase.from('templates').select('name, fields').eq('id', contract.template_id).maybeSingle(),
+      supabase.from('organizations').select('name').eq('id', contract.org_id).maybeSingle(),
+    ])
+
+    const fields = (templateRes.data?.fields ?? []) as Array<{
+      key: string; label: string; filled_by?: string
+    }>
+    const data = (contract.data ?? {}) as Record<string, string>
+
+    const managerFields = fields
+      .filter((f) => (f.filled_by ?? 'manager') === 'manager' && data[f.key])
+      .map((f) => ({ label: f.label, value: data[f.key] }))
+
+    const clientFields = fields
+      .filter((f) => f.filled_by === 'client')
+      .map((f) => ({ label: f.label, value: data[f.key] ?? '—' }))
+
+    const qrPngBuffer = await QRCode.toBuffer(
+      `https://onecontract.kz/verify/${contractId}`,
+      { width: 200, margin: 2, type: 'png', color: { dark: '#000926', light: '#FFFFFF' } }
+    ) as Buffer
+
+    const pdfBytes = await generateSignedContractPdf({
+      contractId,
+      orgName: orgRes.data?.name ?? 'Организация',
+      templateName: templateRes.data?.name ?? 'Договор',
+      managerFields,
+      clientFields,
+      signerPhone: contract.recipient_phone ?? '',
+      signerIp,
+      signedAt: now,
+      sealHash,
+      qrPngBuffer,
+    })
+
+    const { error: uploadErr } = await supabase.storage
+      .from('contracts')
+      .upload(`${contractId}.pdf`, pdfBytes, { contentType: 'application/pdf', upsert: true })
+
+    if (!uploadErr) {
+      const { data: signed } = await supabase.storage
+        .from('contracts')
+        .createSignedUrl(`${contractId}.pdf`, 7 * 24 * 60 * 60)
+
+      pdfUrl = signed?.signedUrl ?? null
+      if (pdfUrl) {
+        await supabase.from('contracts').update({ pdf_url: pdfUrl }).eq('id', contractId)
+      }
+    }
+  } catch (err) {
+    console.error('PDF generation failed (non-fatal):', err)
+  }
+
+  return NextResponse.json({ success: true, pdf_url: pdfUrl })
 }

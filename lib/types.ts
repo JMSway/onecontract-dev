@@ -72,6 +72,7 @@ export interface Contract {
   viewed_at?: string
   signed_at?: string
   expires_at?: string
+  retention_until?: string
 }
 
 export interface AuditLog {

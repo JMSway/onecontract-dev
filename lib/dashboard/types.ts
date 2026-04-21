@@ -31,6 +31,8 @@ export interface Contract {
   channel: SendChannel
   sentAt: string | null
   createdAt: string
+  pdfUrl?: string | null
+  retentionUntil?: string | null
 }
 
 export interface DashboardStats {

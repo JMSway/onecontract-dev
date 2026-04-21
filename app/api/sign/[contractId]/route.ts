@@ -33,9 +33,23 @@ export async function GET(
   // Get template
   const { data: template } = await supabase
     .from('templates')
-    .select('name, fields')
+    .select('name, fields, source_file_url')
     .eq('id', contract.template_id)
     .maybeSingle()
+
+  // Refresh signed URL (stored one may have expired)
+  let sourceFileUrl: string | null = null
+  if (template?.source_file_url) {
+    const stored = template.source_file_url
+    const match = stored.match(/\/templates\/([^?]+)/)
+    const path = match?.[1]
+    if (path) {
+      const { data: fresh } = await supabase.storage
+        .from('templates')
+        .createSignedUrl(decodeURIComponent(path), 60 * 60)
+      sourceFileUrl = fresh?.signedUrl ?? null
+    }
+  }
 
   // Get org name
   const { data: org } = await supabase
@@ -61,7 +75,11 @@ export async function GET(
       sent_via: contract.sent_via,
       data: contract.data,
     },
-    template: template ?? { name: 'Договор', fields: [] },
+    template: {
+      name: template?.name ?? 'Договор',
+      fields: template?.fields ?? [],
+      source_file_url: sourceFileUrl,
+    },
     org: { name: org?.name ?? 'Организация' },
   })
 }
