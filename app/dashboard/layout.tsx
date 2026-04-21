@@ -5,7 +5,7 @@ import { DashboardUserProvider } from '@/components/dashboard/DashboardUserConte
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { MobileBottomNav } from '@/components/dashboard/MobileBottomNav'
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader'
-import type { DashboardUser } from '@/lib/dashboard/types'
+import type { DashboardUser, UserRole } from '@/lib/dashboard/types'
 
 export const runtime = 'edge'
 
@@ -17,18 +17,35 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   if (!user) redirect('/auth/login')
 
+  const { data: profile, error } = await supabase
+    .from('users')
+    .select('id, email, full_name, role, org_id, organizations(id, name)')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (error) throw error
+
   const nameFromMeta =
     (user.user_metadata?.full_name as string | undefined) ??
     (user.user_metadata?.name as string | undefined) ??
     null
-  const name = nameFromMeta ?? (user.email ? user.email.split('@')[0] : 'Пользователь')
-  const orgName = (user.user_metadata?.org_name as string | undefined) ?? 'Моя школа'
+  const fallbackName =
+    nameFromMeta ?? (user.email ? user.email.split('@')[0] : 'Пользователь')
+
+  const org = profile?.organizations as { id: string; name: string } | null | undefined
+  const orgName =
+    org?.name ??
+    (user.user_metadata?.org_name as string | undefined) ??
+    'Моя школа'
+  const orgId = org?.id ?? profile?.org_id ?? ''
+  const role: UserRole = profile?.role === 'manager' ? 'manager' : 'owner'
 
   const dashboardUser: DashboardUser = {
     id: user.id,
-    email: user.email ?? '',
-    name,
-    role: 'owner',
+    email: profile?.email ?? user.email ?? '',
+    name: profile?.full_name ?? fallbackName,
+    role,
+    orgId,
     orgName,
     createdAt: user.created_at ?? new Date().toISOString(),
   }
