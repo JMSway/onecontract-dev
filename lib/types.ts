@@ -50,8 +50,14 @@ export interface Template {
   description?: string
   fields: TemplateField[]
   source_file_url?: string
+  template_docx_url?: string
   created_by?: string
   created_at: string
+}
+
+export interface DocxPatch {
+  search: string
+  replace: string
 }
 
 export interface Contract {

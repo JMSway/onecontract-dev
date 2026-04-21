@@ -17,6 +17,15 @@ export type GeneratePdfParams = {
   qrPngBuffer: Buffer | Uint8Array
 }
 
+export type AppendSealParams = {
+  contractId: string
+  signerPhone: string
+  signerIp: string | null
+  signedAt: string
+  sealHash: string
+  qrPngBuffer: Buffer | Uint8Array
+}
+
 // Split text into Latin/Cyrillic segments for dual-font rendering
 function splitByScript(text: string): Array<{ text: string; isCyrillic: boolean }> {
   const segs: Array<{ text: string; isCyrillic: boolean }> = []
@@ -188,6 +197,88 @@ export async function generateSignedContractPdf(p: GeneratePdfParams): Promise<U
   // ── Footer ───────────────────────────────────────────────────────────────────
   line('Подписано в соответствии со ст.152 ГК РК (простая электронная подпись — ПЭП)', 7.5, MUTED)
   line('Документ сформирован автоматически. Юридически значимо без NCALayer/ЭЦП.', 7.5, MUTED)
+
+  return doc.save()
+}
+
+/**
+ * Append a dedicated seal page to an existing PDF (produced by ConvertAPI from the
+ * layout-preserving docx flow). Contains HMAC-SHA256 hash, QR, verify URL, signing
+ * metadata, and the ПЭП legal reference.
+ */
+export async function appendSealPage(
+  pdfBytes: Uint8Array,
+  p: AppendSealParams,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes)
+  doc.registerFontkit(fontkit)
+
+  const lf = await doc.embedFont(Buffer.from(NOTO_SANS_LATIN_WOFF_B64, 'base64'))
+  const cf = await doc.embedFont(Buffer.from(NOTO_SANS_CYRILLIC_WOFF_B64, 'base64'))
+
+  const page = doc.addPage([W, H])
+  let y = H - MARGIN
+
+  const maskedPhone = p.signerPhone
+    ? p.signerPhone.replace(/(\+\d)(\d+)(\d{4})$/, (_, a, b, c) => a + '*'.repeat(b.length) + c)
+    : '—'
+
+  // Header
+  drawMixed(page, 'Печать подписи', lf, cf, MARGIN, y, 16, NAVY)
+  const badge = 'SHA-256 ПЭП'
+  const bW = measureMixed(badge, lf, cf, 8) + 16
+  page.drawRectangle({ x: W - MARGIN - bW, y: y - 3, width: bW, height: 16, color: ICE })
+  drawMixed(page, badge, lf, cf, W - MARGIN - bW + 8, y + 1, 8, BLUE)
+  y -= 22
+
+  const sub = truncate(`Договор №${p.contractId.slice(0, 8).toUpperCase()}`, CW, lf, cf, 10)
+  drawMixed(page, sub, lf, cf, MARGIN, y, 10, MUTED)
+  y -= 18
+
+  page.drawLine({ start: { x: MARGIN, y }, end: { x: W - MARGIN, y }, thickness: 0.5, color: ICE })
+  y -= 20
+
+  // Metadata block
+  const row = (label: string, value: string) => {
+    drawMixed(page, label, lf, cf, MARGIN, y, 10, MUTED)
+    drawMixed(page, truncate(value, CW * 0.6, lf, cf, 10), lf, cf, MARGIN + CW * 0.35, y, 10, TEXT)
+    y -= 22
+  }
+
+  row('Метод подписания', 'SMS OTP (ПЭП, ст.152 ГК РК)')
+  row('Телефон подписанта', maskedPhone)
+  row('Дата подписания', new Date(p.signedAt).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty',
+  }))
+  if (p.signerIp) row('IP адрес', p.signerIp)
+
+  y -= 10
+  page.drawLine({ start: { x: MARGIN, y }, end: { x: W - MARGIN, y }, thickness: 0.5, color: ICE })
+  y -= 24
+
+  // QR + hash block
+  const qrSz = 140
+  const qrY = y - qrSz
+  const qrImg = await doc.embedPng(p.qrPngBuffer)
+  page.drawImage(qrImg, { x: MARGIN, y: qrY, width: qrSz, height: qrSz })
+
+  const tx = MARGIN + qrSz + 20
+  drawMixed(page, 'HMAC-SHA256 печать:', lf, cf, tx, y - 14, 10, MUTED)
+  drawMixed(page, p.sealHash.slice(0, 32), lf, cf, tx, y - 30, 8, TEXT)
+  drawMixed(page, p.sealHash.slice(32), lf, cf, tx, y - 42, 8, TEXT)
+
+  drawMixed(page, 'Проверить подпись:', lf, cf, tx, y - 64, 10, MUTED)
+  drawMixed(page, `onecontract.kz/verify/${p.contractId}`, lf, cf, tx, y - 80, 9, BLUE)
+
+  y = qrY - 16
+  page.drawLine({ start: { x: MARGIN, y }, end: { x: W - MARGIN, y }, thickness: 0.5, color: ICE })
+  y -= 20
+
+  // Footer (wrapped)
+  drawMixed(page, 'Документ подписан простой электронной подписью (ПЭП) в соответствии со ст.152 ГК РК.', lf, cf, MARGIN, y, 9, MUTED)
+  y -= 14
+  drawMixed(page, 'Сформирован автоматически. Юридически значимо без NCALayer/ЭЦП.', lf, cf, MARGIN, y, 9, MUTED)
 
   return doc.save()
 }
