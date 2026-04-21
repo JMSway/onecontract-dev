@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { createClient } from '@/lib/supabase/server'
 import type { TemplateField } from '@/lib/types'
+
+function readOpenrouterKey(): string | undefined {
+  try {
+    const { env } = getCloudflareContext()
+    if (env?.OPENROUTER_API_KEY) return env.OPENROUTER_API_KEY
+  } catch {
+    // not running inside Cloudflare runtime (e.g. `next dev`) — fall through
+  }
+  return process.env.OPENROUTER_API_KEY
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
@@ -19,7 +30,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY
+  const apiKey = readOpenrouterKey()
   if (!apiKey) {
     return NextResponse.json({ error: 'AI service not configured' }, { status: 503 })
   }
