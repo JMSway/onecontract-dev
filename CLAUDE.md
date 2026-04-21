@@ -1,15 +1,13 @@
 # OneContract
 
 ## Deployment
-PRIMARY REPO: JMSway/onecontract-dev (this repo)
-PRIMARY URL: https://onecontract-dev.pages.dev
-DOMAIN: onecontract.kz (DNS указывает сюда же)
-
-Hosting: Cloudflare Pages
-Build: npx opennextjs-cloudflare build
-Output: .open-next/assets
-Node: 20
-Compatibility flag: nodejs_compat
+REPO: JMSway/onecontract-dev (single repo, single deploy)
+HOSTING: Cloudflare Workers (NOT Pages)
+DOMAIN: onecontract.kz
+BUILD: npx opennextjs-cloudflare build
+OUTPUT: .open-next/assets
+NODE: 20
+FLAGS: nodejs_compat
 
 **IMPORTANT:** `@cloudflare/next-on-pages` is deprecated and incompatible
 with Next.js 16. Never use it. Always use `@opennextjs/cloudflare`.
@@ -23,13 +21,16 @@ are prerendered static HTML — heavy libs there don't count toward Worker size.
 
 NEVER commit build artifacts (.open-next, .next, .vercel, .wrangler).
 
-Environment variables (set in Cloudflare Pages dashboard):
+Deploy = git push to main → Cloudflare auto-rebuilds.
+No deploy scripts needed. One repo, one environment.
+
+Environment variables (set in Cloudflare Workers dashboard):
   NEXT_PUBLIC_SUPABASE_URL
   NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 Supabase: https://zideehxygpnehkjeeqzr.supabase.co
 Supabase Redirect URLs configured:
-  https://onecontract-dev.pages.dev/**
+  https://onecontract-dev.fordamirio.workers.dev/**
   https://onecontract.kz/**
   http://localhost:3000/**
 
@@ -39,15 +40,9 @@ Google OAuth: configured via Google Cloud Console
   Status: Published (all users can sign in)
   Callback: https://zideehxygpnehkjeeqzr.supabase.co/auth/v1/callback
 
-Production repo (JMSway/onecontract) — FROZEN.
-Will be used only before diploma defense to create
-clean version without AI markers.
-DO NOT push to production repo during development.
-
 **CRITICAL DEPLOYMENT RULES FOR AI:**
-1. **Always push to DEV:** When completing tasks, you MUST ALWAYS `git push` to `onecontract-dev`. This triggers the dev deployment so the user can verify changes.
-2. **NEVER touch PRODUCTION automatically:** You must NEVER push directly or try to sync code to the `onecontract` production repo unless the user explicitly commands: "Deploy to production".
-3. **Deploying to production:** When given the explicit command to deploy, ONLY use the `scripts/deploy-production.sh` script.
+1. **Always push to main:** When completing tasks, you MUST ALWAYS `git push` to `onecontract-dev`. This triggers auto-deploy to Cloudflare Workers.
+2. **No production repo:** JMSway/onecontract (frozen) is only used before diploma defense via `scripts/deploy-production.sh`.
 
 Electronic contract platform for educational centers in Kazakhstan.
 Language schools as anchor segment → IT courses & online schools in wave 2.
@@ -60,7 +55,7 @@ We're NOT competing with existing EDO (TrustMe, Documentolog). We CREATE contrac
 - **Framework**: Next.js 14+ (App Router, TypeScript)
 - **Styling**: Tailwind CSS
 - **Database**: Supabase (PostgreSQL + Auth + Storage + RLS)
-- **Deploy**: Cloudflare Pages via @opennextjs/cloudflare (NOT Vercel)
+- **Deploy**: Cloudflare Workers via @opennextjs/cloudflare (NOT Vercel, NOT Pages)
 - **PDF**: pdf-lib (generation), react-pdf (viewer)
 - **SMS**: Mobizon.kz API or sms.kz
 - **e-Signature**: SIGEX API (eGov QR, free tier, 40 docs/month)
