@@ -7,24 +7,59 @@ import { FileSignature, Loader2 } from 'lucide-react'
 import { signInWithEmail } from '@/lib/supabase-auth'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 
+interface FieldErrors {
+  email?: string
+  password?: string
+}
+
+function mapSupabaseError(message: string): string {
+  const m = message.toLowerCase()
+  if (m.includes('invalid login credentials') || m.includes('invalid email or password')) {
+    return 'Неверный email или пароль'
+  }
+  if (m.includes('email not confirmed')) {
+    return 'Email не подтверждён. Проверьте почту и перейдите по ссылке.'
+  }
+  if (m.includes('user not found')) {
+    return 'Аккаунт с таким email не найден'
+  }
+  if (m.includes('too many requests') || m.includes('rate limit')) {
+    return 'Слишком много попыток. Подождите минуту.'
+  }
+  return 'Не удалось войти. Попробуйте ещё раз.'
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
+    setFormError(null)
+
+    const errors: FieldErrors = {}
+    if (!email.trim()) errors.email = 'Введите email'
+    if (!password) errors.password = 'Введите пароль'
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      return
+    }
+
+    setFieldErrors({})
     setLoading(true)
 
     try {
-      await signInWithEmail(email, password)
+      await signInWithEmail(email.trim(), password)
       router.push('/dashboard')
       router.refresh()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось войти')
+      const msg = err instanceof Error ? err.message : ''
+      setFormError(mapSupabaseError(msg))
       setLoading(false)
     }
   }
@@ -56,38 +91,56 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-4">
+          {formError && (
+            <p className="mb-4 text-sm text-danger bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+              {formError}
+            </p>
+          )}
+
+          <form onSubmit={onSubmit} noValidate className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-text-dark mb-2">Email</label>
               <input
                 type="email"
-                required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: undefined })
+                }}
+                className={`w-full px-4 py-3 text-sm rounded-xl border bg-white text-text-dark placeholder:text-muted/60 focus:outline-none transition-colors ${
+                  fieldErrors.email
+                    ? 'border-danger/50 focus:border-danger'
+                    : 'border-ice focus:border-sapphire'
+                }`}
                 placeholder="you@school.kz"
                 autoComplete="email"
               />
+              {fieldErrors.email && (
+                <p className="text-sm text-danger mt-1">{fieldErrors.email}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-text-dark mb-2">Пароль</label>
               <input
                 type="password"
-                required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 text-sm rounded-xl border border-ice bg-white text-text-dark placeholder:text-muted/60 focus:outline-none focus:border-sapphire transition-colors"
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  if (fieldErrors.password) setFieldErrors({ ...fieldErrors, password: undefined })
+                }}
+                className={`w-full px-4 py-3 text-sm rounded-xl border bg-white text-text-dark placeholder:text-muted/60 focus:outline-none transition-colors ${
+                  fieldErrors.password
+                    ? 'border-danger/50 focus:border-danger'
+                    : 'border-ice focus:border-sapphire'
+                }`}
                 placeholder="••••••••"
                 autoComplete="current-password"
               />
+              {fieldErrors.password && (
+                <p className="text-sm text-danger mt-1">{fieldErrors.password}</p>
+              )}
             </div>
-
-            {error && (
-              <p className="text-sm text-danger bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-                {error}
-              </p>
-            )}
 
             <button
               type="submit"

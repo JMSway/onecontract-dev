@@ -81,13 +81,15 @@ export function Header() {
             >
               Тарифы
             </a>
-            <Link
-              href="/auth/login"
-              className="text-muted hover:text-white transition-colors py-1 text-sm font-medium"
-              onClick={() => setMobileOpen(false)}
-            >
-              Войти
-            </Link>
+            <div className="pt-3 mt-2 border-t border-powder/10">
+              <Link
+                href="/auth/login"
+                className="inline-flex items-center justify-center bg-sapphire hover:bg-blue-700 text-white rounded-xl px-5 py-2.5 font-semibold text-sm transition-colors"
+                onClick={() => setMobileOpen(false)}
+              >
+                Войти
+              </Link>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

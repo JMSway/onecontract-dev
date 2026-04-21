@@ -29,7 +29,7 @@ export function GoogleButton({ label }: GoogleButtonProps) {
         type="button"
         onClick={onClick}
         disabled={loading}
-        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 font-medium py-3 px-4 rounded-xl transition-colors shadow-sm"
+        className="w-full flex items-center justify-center gap-3 bg-white border border-gray-200 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 font-medium py-3.5 px-4 rounded-xl transition-colors shadow-sm"
       >
         {loading ? (
           <Loader2 size={18} strokeWidth={1.5} className="animate-spin text-muted" />
