@@ -4,7 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { FileSignature, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
+import { signInWithEmail } from '@/lib/supabase-auth'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -18,21 +19,20 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-
-    if (error) {
-      setError(error.message)
+    try {
+      await signInWithEmail(email, password)
+      router.push('/dashboard')
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось войти')
       setLoading(false)
-      return
     }
-
-    router.push('/dashboard')
-    router.refresh()
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-white px-4 py-12">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-ice via-white to-ice px-4 py-12">
+      <p className="text-xs text-muted text-center mb-6">Электронные договоры для школ</p>
+
       <Link href="/" className="flex items-center gap-2 mb-8">
         <div className="w-9 h-9 bg-sapphire rounded-[10px] flex items-center justify-center">
           <FileSignature size={18} strokeWidth={1.5} className="text-white" />
@@ -41,9 +41,20 @@ export default function LoginPage() {
       </Link>
 
       <div className="w-full max-w-sm">
-        <div className="bg-white border border-ice rounded-2xl p-8 shadow-sm">
+        <div className="bg-white border border-ice rounded-2xl p-8 shadow-lg shadow-navy/8">
           <h1 className="text-2xl font-bold text-text-dark mb-2 tracking-tight">Войти</h1>
           <p className="text-sm text-muted mb-6">С возвращением</p>
+
+          <GoogleButton label="Войти через Google" />
+
+          <div className="relative my-5">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-ice" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-white px-3 text-muted">или</span>
+            </div>
+          </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
