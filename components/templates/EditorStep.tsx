@@ -1,6 +1,5 @@
 'use client'
 
-import { useMemo } from 'react'
 import { FieldsEditor } from './FieldsEditor'
 import { DocumentPreview } from './DocumentPreview'
 import { FieldMappingPanel } from './FieldMappingPanel'
@@ -33,21 +32,11 @@ interface EditorStepProps {
 export function EditorStep(props: EditorStepProps) {
   const {
     file, fileUrl, fileKind, fields, patches,
-    activeFieldId, onFieldSelect, onFieldAddWithPatch,
+    activeFieldId, onFieldSelect,
+    onFieldAddWithPatch: _onFieldAddWithPatch,
     ...editorProps
   } = props
-
-  const fieldGroups = useMemo(() => {
-    const map: Record<string, string> = {}
-    for (const f of fields) {
-      map[f.key] = f.group ?? 'other'
-    }
-    return map
-  }, [fields])
-
-  const activeField = activeFieldId
-    ? fields.find((f) => f._id === activeFieldId) ?? null
-    : null
+  void _onFieldAddWithPatch
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 lg:gap-6">
@@ -59,35 +48,11 @@ export function EditorStep(props: EditorStepProps) {
           {...editorProps}
         />
       </div>
-      <div className="order-2 lg:order-2 lg:sticky lg:top-4 lg:self-start">
+      <div className="order-2 lg:order-2 lg:sticky lg:top-4 lg:self-start space-y-4">
         <DocumentPreview
           file={file}
           fileUrl={fileUrl}
           fileKind={fileKind}
-          highlightKeys={fields.map((f) => f.key).filter((k) => k.length > 0)}
-          fieldGroups={fieldGroups}
-          activeFieldKey={activeField?.key ?? null}
-          onFieldClick={(key) => {
-            const field = fields.find((f) => f.key === key)
-            if (field) onFieldSelect?.(field._id)
-          }}
-          onBlankClick={(searchText) => {
-            const newId = crypto.randomUUID()
-            const key = `field_${Date.now()}`
-            onFieldAddWithPatch?.(
-              {
-                _id: newId,
-                key,
-                label: '',
-                type: 'text',
-                required: true,
-                filled_by: 'client',
-                group: 'other',
-              },
-              { search: searchText, replace: `{{${key}}}` }
-            )
-            onFieldSelect?.(newId)
-          }}
         />
         <FieldMappingPanel fields={fields} patches={patches} />
       </div>

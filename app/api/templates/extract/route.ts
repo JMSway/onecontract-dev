@@ -25,17 +25,26 @@ function readGroqKey(): string | undefined {
 type Message = { role: string; content: string }
 
 async function callAI(messages: Message[]): Promise<string | null> {
-  // Level 1: Groq (primary — fast and stable)
   const groqKey = readGroqKey()
+  const openrouterKey = readOpenrouterKey()
+  console.log('[extract] API keys available — Groq:', !!groqKey, 'OpenRouter:', !!openrouterKey)
+
+  // Level 1: Groq (primary — fast and stable)
   if (groqKey) {
     for (const model of ['llama-3.3-70b-versatile', 'gemma2-9b-it']) {
       try {
+        console.log(`[extract] Calling Groq model: ${model}`)
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 8192 }),
         })
-        if (!res.ok) { console.warn(`[extract] Groq ${model} error ${res.status}`); continue }
+        console.log(`[extract] Groq ${model} status: ${res.status}`)
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '')
+          console.error(`[extract] Groq ${model} error body: ${errText.slice(0, 300)}`)
+          continue
+        }
         const json = await res.json()
         const content: string = json.choices?.[0]?.message?.content ?? ''
         if (content) { console.info(`[extract] Groq ${model} success`); return content }
@@ -44,10 +53,10 @@ async function callAI(messages: Message[]): Promise<string | null> {
   }
 
   // Level 2: OpenRouter (fallback)
-  const openrouterKey = readOpenrouterKey()
   if (openrouterKey) {
     for (const model of ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free', 'google/gemma-3-12b-it:free']) {
       try {
+        console.log(`[extract] Calling OpenRouter model: ${model}`)
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -58,7 +67,12 @@ async function callAI(messages: Message[]): Promise<string | null> {
           },
           body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 8192 }),
         })
-        if (!res.ok) { console.warn(`[extract] OpenRouter ${model} error ${res.status}`); continue }
+        console.log(`[extract] OpenRouter ${model} status: ${res.status}`)
+        if (!res.ok) {
+          const errText = await res.text().catch(() => '')
+          console.error(`[extract] OpenRouter ${model} error body: ${errText.slice(0, 300)}`)
+          continue
+        }
         const json = await res.json()
         const content: string = json.choices?.[0]?.message?.content ?? ''
         if (content) { console.info(`[extract] OpenRouter ${model} success`); return content }

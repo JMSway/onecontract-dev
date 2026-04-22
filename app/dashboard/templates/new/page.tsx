@@ -60,11 +60,23 @@ export default function NewTemplatePage() {
   const removeField = (id: string) =>
     setFields((prev) => prev.filter((f) => f._id !== id))
 
-  const addField = () =>
+  const addField = () => {
+    const id = crypto.randomUUID()
+    const key = `field_${Date.now()}`
     setFields((prev) => [
       ...prev,
-      { _id: crypto.randomUUID(), key: '', label: '', type: 'text', required: true, filled_by: 'manager' },
+      {
+        _id: id,
+        key,
+        label: '',
+        type: 'text',
+        required: true,
+        filled_by: 'client',
+        group: 'other',
+      },
     ])
+    setActiveFieldId(id)
+  }
 
   const addFieldWithPatch = (field: EditableField, patch: DocxPatch) => {
     setFields((prev) => [...prev, field])
