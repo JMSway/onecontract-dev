@@ -31,7 +31,7 @@ async function callAI(messages: Message[]): Promise<string | null> {
 
   // Level 1: Groq (primary — fast and stable)
   if (groqKey) {
-    for (const model of ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'meta-llama/llama-4-scout-17b-16e-instruct']) {
+    for (const model of ['llama-3.1-8b-instant', 'openai/gpt-oss-20b', 'meta-llama/llama-4-scout-17b-16e-instruct', 'llama-3.3-70b-versatile']) {
       try {
         console.log(`[extract] Calling Groq model: ${model}`)
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })
   }
 
-  const excerpt = text.slice(0, 6000)
+  const excerpt = text.slice(0, 24000)
 
   const messages = [
     { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
