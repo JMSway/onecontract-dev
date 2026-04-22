@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check:cf": "opennextjs-cloudflare build && npx wrangler deploy --dry-run --outdir /tmp/cf-check-out 2>/dev/null; echo '--- wrangler bundle (gzipped):' && gzip -c /tmp/cf-check-out/worker.js | wc -c | awk '{printf \"%.2f MiB (limit 3 MiB free / 10 MiB paid)\\n\", $1/1048576}'"
+    "postinstall": "node scripts/patch-vercel-og.mjs",
+    "check:cf": "opennextjs-cloudflare build && npx wrangler deploy --dry-run --outdir /tmp/cf-check-out 2>/dev/null; echo '--- worker.js + wasm (gzipped, counts toward 3 MiB limit):' && { gzip -c /tmp/cf-check-out/worker.js | wc -c; for f in /tmp/cf-check-out/*.wasm; do [ -f \"$f\" ] && gzip -c \"$f\" | wc -c; done; } | awk '{s+=$1} END {printf \"%.2f MiB (limit 3 MiB free / 10 MiB paid)\\n\", s/1048576}'"
   },
   "dependencies": {
     "@fontsource/noto-sans": "^5.2.10",
