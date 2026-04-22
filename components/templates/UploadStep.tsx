@@ -115,7 +115,7 @@ export function UploadStep({ onReady }: UploadStepProps) {
           // non-critical; continue without preview URL (docx uses File directly anyway)
         }
 
-        setLoadingMsg('AI анализирует договор…')
+        setLoadingMsg('Анализ договора (большие документы могут занять до минуты)…')
         const res = await fetch('/api/templates/extract', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

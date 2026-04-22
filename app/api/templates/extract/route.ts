@@ -24,62 +24,154 @@ function readGroqKey(): string | undefined {
 
 type Message = { role: string; content: string }
 
-async function callAI(messages: Message[]): Promise<string | null> {
-  const groqKey = readGroqKey()
-  const openrouterKey = readOpenrouterKey()
-  console.log('[extract] API keys available — Groq:', !!groqKey, 'OpenRouter:', !!openrouterKey)
+const MAX_CHUNK_CHARS = 10000
+const MAX_TOKENS = 4000
+const MAX_RETRY_WAIT_SEC = 30
 
-  // Level 1: Groq (primary — fast and stable)
+const GROQ_MODELS = [
+  'llama-3.1-8b-instant',
+  'openai/gpt-oss-20b',
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'llama-3.3-70b-versatile',
+]
+
+const OPENROUTER_MODELS = [
+  'deepseek/deepseek-chat:free',
+  'qwen/qwen-2.5-72b-instruct:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+  'google/gemma-3-27b-it:free',
+]
+
+function parseRetryAfter(headerValue: string | null): number {
+  if (!headerValue) return 0
+  const n = parseFloat(headerValue)
+  if (!isFinite(n) || n <= 0) return 0
+  return Math.min(n, MAX_RETRY_WAIT_SEC)
+}
+
+async function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function splitIntoChunks(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text]
+  const chunks: string[] = []
+  let pos = 0
+  while (pos < text.length) {
+    let end = Math.min(pos + maxChars, text.length)
+    if (end < text.length) {
+      const para = text.lastIndexOf('\n\n', end)
+      if (para > pos + maxChars / 2) {
+        end = para
+      } else {
+        const sentence = text.lastIndexOf('. ', end)
+        if (sentence > pos + maxChars / 2) end = sentence + 1
+      }
+    }
+    chunks.push(text.slice(pos, end))
+    pos = end
+  }
+  return chunks
+}
+
+async function callGroqModel(
+  model: string,
+  messages: Message[],
+  apiKey: string,
+  retryOn429: boolean,
+): Promise<string | null> {
+  try {
+    console.log(`[extract] Calling Groq model: ${model}`)
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: MAX_TOKENS }),
+    })
+    console.log(`[extract] Groq ${model} status: ${res.status}`)
+    if (res.status === 429 && retryOn429) {
+      const wait = parseRetryAfter(res.headers.get('retry-after')) || 10
+      console.log(`[extract] Groq ${model} 429 — retrying after ${wait}s`)
+      await sleep(wait * 1000)
+      return callGroqModel(model, messages, apiKey, false)
+    }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error(`[extract] Groq ${model} error body: ${errText.slice(0, 300)}`)
+      return null
+    }
+    const json = await res.json()
+    const content: string = json.choices?.[0]?.message?.content ?? ''
+    if (content) {
+      console.info(`[extract] Groq ${model} success`)
+      return content
+    }
+    return null
+  } catch (e) {
+    console.warn(`[extract] Groq ${model} threw:`, e)
+    return null
+  }
+}
+
+async function callOpenRouterModel(
+  model: string,
+  messages: Message[],
+  apiKey: string,
+  retryOn429: boolean,
+): Promise<string | null> {
+  try {
+    console.log(`[extract] Calling OpenRouter model: ${model}`)
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://onecontract.kz',
+        'X-Title': 'OneContract',
+      },
+      body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: MAX_TOKENS }),
+    })
+    console.log(`[extract] OpenRouter ${model} status: ${res.status}`)
+    if (res.status === 429 && retryOn429) {
+      const wait = parseRetryAfter(res.headers.get('retry-after')) || 10
+      console.log(`[extract] OpenRouter ${model} 429 — retrying after ${wait}s`)
+      await sleep(wait * 1000)
+      return callOpenRouterModel(model, messages, apiKey, false)
+    }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error(`[extract] OpenRouter ${model} error body: ${errText.slice(0, 300)}`)
+      return null
+    }
+    const json = await res.json()
+    const content: string = json.choices?.[0]?.message?.content ?? ''
+    if (content) {
+      console.info(`[extract] OpenRouter ${model} success`)
+      return content
+    }
+    return null
+  } catch (e) {
+    console.warn(`[extract] OpenRouter ${model} threw:`, e)
+    return null
+  }
+}
+
+async function callAI(
+  messages: Message[],
+  groqKey: string | undefined,
+  openrouterKey: string | undefined,
+): Promise<string | null> {
   if (groqKey) {
-    for (const model of ['llama-3.1-8b-instant', 'openai/gpt-oss-20b', 'meta-llama/llama-4-scout-17b-16e-instruct', 'llama-3.3-70b-versatile']) {
-      try {
-        console.log(`[extract] Calling Groq model: ${model}`)
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 8192 }),
-        })
-        console.log(`[extract] Groq ${model} status: ${res.status}`)
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '')
-          console.error(`[extract] Groq ${model} error body: ${errText.slice(0, 300)}`)
-          continue
-        }
-        const json = await res.json()
-        const content: string = json.choices?.[0]?.message?.content ?? ''
-        if (content) { console.info(`[extract] Groq ${model} success`); return content }
-      } catch (e) { console.warn(`[extract] Groq ${model} threw:`, e) }
+    for (const model of GROQ_MODELS) {
+      const content = await callGroqModel(model, messages, groqKey, true)
+      if (content) return content
     }
   }
-
-  // Level 2: OpenRouter (fallback)
   if (openrouterKey) {
-    for (const model of ['deepseek/deepseek-chat:free', 'qwen/qwen-2.5-72b-instruct:free', 'meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free']) {
-      try {
-        console.log(`[extract] Calling OpenRouter model: ${model}`)
-        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${openrouterKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://onecontract.kz',
-            'X-Title': 'OneContract',
-          },
-          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 8192 }),
-        })
-        console.log(`[extract] OpenRouter ${model} status: ${res.status}`)
-        if (!res.ok) {
-          const errText = await res.text().catch(() => '')
-          console.error(`[extract] OpenRouter ${model} error body: ${errText.slice(0, 300)}`)
-          continue
-        }
-        const json = await res.json()
-        const content: string = json.choices?.[0]?.message?.content ?? ''
-        if (content) { console.info(`[extract] OpenRouter ${model} success`); return content }
-      } catch (e) { console.warn(`[extract] OpenRouter ${model} threw:`, e) }
+    for (const model of OPENROUTER_MODELS) {
+      const content = await callOpenRouterModel(model, messages, openrouterKey, true)
+      if (content) return content
     }
   }
-
   return null
 }
 
@@ -100,31 +192,61 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })
   }
 
-  const excerpt = text.slice(0, 24000)
+  const groqKey = readGroqKey()
+  const openrouterKey = readOpenrouterKey()
+  console.log('[extract] API keys available — Groq:', !!groqKey, 'OpenRouter:', !!openrouterKey)
 
-  const messages = [
-    { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
-    { role: 'user', content: buildUserPrompt(excerpt) },
-  ]
-
-  const content = await callAI(messages)
-  if (!content) {
+  if (!groqKey && !openrouterKey) {
     return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
   }
 
-  const parsed = parseAIResponse(content)
-  if (parsed.fields.length === 0) {
-    console.log('[extract] AI content preview:', content.slice(0, 500))
-    return NextResponse.json({ fields: [], patches: [], aiParseFailed: true }, { status: 200 })
+  const chunks = splitIntoChunks(text, MAX_CHUNK_CHARS)
+  console.log(`[extract] split into ${chunks.length} chunks (total ${text.length} chars)`)
+
+  const allFields: TemplateField[] = []
+  const allPatches: DocxPatch[] = []
+  let anyAISuccess = false
+  let anyAIFailed = false
+  let lastContentPreview = ''
+
+  for (let i = 0; i < chunks.length; i++) {
+    console.log(`[extract] chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)`)
+    const messages = [
+      { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
+      { role: 'user', content: buildUserPrompt(chunks[i]) },
+    ]
+    const content = await callAI(messages, groqKey, openrouterKey)
+    if (!content) {
+      anyAIFailed = true
+      continue
+    }
+    anyAISuccess = true
+    const parsed = parseAIResponse(content)
+    if (parsed.fields.length === 0) {
+      lastContentPreview = content.slice(0, 500)
+      continue
+    }
+    allFields.push(...parsed.fields)
+    allPatches.push(...parsed.patches)
   }
 
-  const fields = dedupeFields(parsed.fields)
-  const validated = validatePatches(parsed.patches, fields, excerpt)
+  if (allFields.length === 0) {
+    if (lastContentPreview) {
+      console.log('[extract] AI content preview:', lastContentPreview)
+    }
+    return NextResponse.json({
+      fields: [],
+      patches: [],
+      aiUnavailable: !anyAISuccess,
+      aiParseFailed: anyAISuccess,
+    }, { status: 200 })
+  }
+
+  const fields = dedupeFields(allFields)
+  const validated = validatePatches(allPatches, fields, text)
   const patches = dedupePatches(validated)
-  const droppedPatches = parsed.patches.length - validated.length
-  const droppedFields = parsed.fields.length - fields.length
   console.info(
-    `[extract] → ${fields.length} fields (${droppedFields} deduped), ${patches.length} patches (${droppedPatches} invalid/ambiguous)`
+    `[extract] merged: ${fields.length} unique fields, ${patches.length} patches from ${chunks.length} chunks (AI failed on ${anyAIFailed ? 'some' : 'no'} chunks)`
   )
 
   return NextResponse.json({ fields, patches })
