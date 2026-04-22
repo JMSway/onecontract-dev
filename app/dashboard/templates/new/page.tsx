@@ -34,6 +34,8 @@ export default function NewTemplatePage() {
   const [templateName, setTemplateName] = useState('')
   const [description, setDescription] = useState('')
 
+  const [activeFieldId, setActiveFieldId] = useState<string | null>(null)
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [aiUnavailable, setAiUnavailable] = useState(false)
@@ -63,6 +65,12 @@ export default function NewTemplatePage() {
       ...prev,
       { _id: crypto.randomUUID(), key: '', label: '', type: 'text', required: true, filled_by: 'manager' },
     ])
+
+  const addFieldWithPatch = (field: EditableField, patch: DocxPatch) => {
+    setFields((prev) => [...prev, field])
+    setPatches((prev) => [...prev, patch])
+    setActiveFieldId(field._id)
+  }
 
   const handleCancel = () => {
     router.push('/dashboard/templates')
@@ -147,6 +155,9 @@ export default function NewTemplatePage() {
             saving={saving}
             error={error}
             aiUnavailable={aiUnavailable}
+            activeFieldId={activeFieldId}
+            onFieldSelect={setActiveFieldId}
+            onFieldAddWithPatch={addFieldWithPatch}
           />
         )}
       </div>

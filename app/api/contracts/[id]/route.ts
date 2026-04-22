@@ -12,8 +12,20 @@ export async function GET(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { id } = await params
+  const { data: me } = await supabase
+    .from('users')
+    .select('org_id')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (!me?.org_id) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
   const [contractRes, pdfLogRes] = await Promise.all([
-    supabase.from('contracts').select('*, templates(name, fields)').eq('id', id).single(),
+    supabase
+      .from('contracts')
+      .select('*, templates(name, fields)')
+      .eq('id', id)
+      .eq('org_id', me.org_id)
+      .single(),
     supabase
       .from('audit_log')
       .select('metadata')

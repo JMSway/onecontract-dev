@@ -50,12 +50,15 @@ export async function POST(
         .update({ phone_attempts: attempts + 1 })
         .eq('id', existing.id)
     } else {
-      await supabase.from('signatures').insert({
-        contract_id: contractId,
-        method: 'sms_otp',
-        phone_attempts: 1,
-        created_at: new Date().toISOString(),
-      })
+      await supabase.from('signatures').upsert(
+        {
+          contract_id: contractId,
+          method: 'sms_otp',
+          phone_attempts: 1,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'contract_id', ignoreDuplicates: false },
+      )
     }
     return NextResponse.json({ match: false, error: 'Номер не совпадает с указанным в договоре' })
   }

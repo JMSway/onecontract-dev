@@ -204,3 +204,32 @@ body {
   pointer-events: none;
   z-index: 100;
 }
+
+@keyframes fieldPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(15, 82, 186, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(15, 82, 186, 0.1); }
+}
+
+.docx-preview {
+  font: 14px/1.7 Inter, system-ui, sans-serif;
+  color: #0D1B2A;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 32px 40px;
+}
+.docx-preview p { margin: 0 0 12px; }
+.docx-preview h1,
+.docx-preview h2,
+.docx-preview h3,
+.docx-preview h4 { color: #0D1B2A; margin: 20px 0 10px; font-weight: 600; }
+.docx-preview h1 { font-size: 20px; }
+.docx-preview h2 { font-size: 17px; }
+.docx-preview h3 { font-size: 15px; }
+.docx-preview table { border-collapse: collapse; margin: 10px 0; width: 100%; }
+.docx-preview td,
+.docx-preview th { border: 1px solid #D6E6F3; padding: 8px 12px; vertical-align: top; text-align: left; white-space: pre-wrap; }
+.docx-preview strong { font-weight: 600; }
+.docx-preview ul,
+.docx-preview ol { padding-left: 22px; margin: 0 0 12px; }
+.docx-preview li { margin-bottom: 4px; }
+.docx-preview img { max-width: 100%; height: auto; }

@@ -19,6 +19,8 @@ interface FieldsEditorProps {
   saving: boolean
   error: string | null
   aiUnavailable?: boolean
+  activeFieldId?: string | null
+  onFieldSelect?: (id: string | null) => void
 }
 
 function groupFields(fields: EditableField[]): { group: string; fields: EditableField[] }[] {
@@ -47,6 +49,8 @@ export function FieldsEditor({
   saving,
   error,
   aiUnavailable,
+  activeFieldId,
+  onFieldSelect,
 }: FieldsEditorProps) {
   const [showHelp, setShowHelp] = useState(false)
 
@@ -121,7 +125,7 @@ export function FieldsEditor({
               <span className="w-2 h-2 rounded-full bg-[#0F7B55] mt-0.5 shrink-0 inline-block" />
               <span><span className="font-medium">Клиент</span> — заполняет при подписании: ИИН, адрес проживания, номер документа.</span>
             </p>
-            <p className="text-[#6B7E92] mt-1">Нажмите на иконку <span className="font-mono">👜/👤</span> рядом с полем чтобы переключить.</p>
+            <p className="text-[#6B7E92] mt-1">Нажмите на поле в документе справа, чтобы связать его с полем слева.</p>
           </div>
         )}
 
@@ -151,6 +155,8 @@ export function FieldsEditor({
                           field={field}
                           onChange={(patch) => onFieldChange(field._id, patch)}
                           onRemove={() => onFieldRemove(field._id)}
+                          isActive={field._id === activeFieldId}
+                          onSelect={() => onFieldSelect?.(field._id)}
                         />
                       ))}
                     </div>
@@ -163,6 +169,8 @@ export function FieldsEditor({
                   field={field}
                   onChange={(patch) => onFieldChange(field._id, patch)}
                   onRemove={() => onFieldRemove(field._id)}
+                  isActive={field._id === activeFieldId}
+                  onSelect={() => onFieldSelect?.(field._id)}
                 />
               ))}
         </div>

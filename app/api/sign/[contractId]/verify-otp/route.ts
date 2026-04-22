@@ -63,10 +63,11 @@ export async function POST(
 
   const now = new Date().toISOString()
 
-  const secret =
-    process.env.SEAL_SECRET ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    'onecontract-default-seal'
+  const secret = process.env.SEAL_SECRET
+  if (!secret) {
+    console.error('[verify-otp] SEAL_SECRET not configured')
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+  }
   const sealData = JSON.stringify({
     contractId,
     signedAt: now,
@@ -95,14 +96,20 @@ export async function POST(
       .from('signatures')
       .update({ otp_verified_at: now, signer_ip: signerIp, signer_ua: signerUa })
       .eq('id', sig.id),
-    supabase.from('audit_log').insert({
+  ])
+
+  // Best-effort audit — never break signing on log failure.
+  try {
+    await supabase.from('audit_log').insert({
       contract_id: contractId,
       action: 'contract_signed',
       actor: 'client',
       metadata: { method: 'sms_otp', sealHash },
       created_at: now,
-    }),
-  ])
+    })
+  } catch (e) {
+    console.error('[verify-otp] audit_log insert failed (contract_signed):', e)
+  }
 
   const serviceSupabase = createServiceClient()
   const result = await generateAndStorePdf(serviceSupabase, contract, {
@@ -114,24 +121,30 @@ export async function POST(
   })
 
   if (result.pdfUrl) {
-    await Promise.all([
-      supabase.from('contracts').update({ pdf_url: result.pdfUrl }).eq('id', contractId),
-      supabase.from('audit_log').insert({
+    await supabase.from('contracts').update({ pdf_url: result.pdfUrl }).eq('id', contractId)
+    try {
+      await supabase.from('audit_log').insert({
         contract_id: contractId,
         action: 'pdf_generated',
         actor: 'system',
         metadata: { via: result.via },
         created_at: new Date().toISOString(),
-      }),
-    ])
+      })
+    } catch (e) {
+      console.error('[verify-otp] audit_log insert failed (pdf_generated):', e)
+    }
   } else if (result.error) {
-    await supabase.from('audit_log').insert({
-      contract_id: contractId,
-      action: 'pdf_generation_failed',
-      actor: 'system',
-      metadata: { via: result.via, error: result.error },
-      created_at: new Date().toISOString(),
-    })
+    try {
+      await supabase.from('audit_log').insert({
+        contract_id: contractId,
+        action: 'pdf_generation_failed',
+        actor: 'system',
+        metadata: { via: result.via, error: result.error },
+        created_at: new Date().toISOString(),
+      })
+    } catch (e) {
+      console.error('[verify-otp] audit_log insert failed (pdf_generation_failed):', e)
+    }
   }
 
   return NextResponse.json({ success: true, pdf_url: result.pdfUrl })

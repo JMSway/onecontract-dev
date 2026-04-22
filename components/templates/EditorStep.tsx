@@ -25,10 +25,17 @@ interface EditorStepProps {
   saving: boolean
   error: string | null
   aiUnavailable?: boolean
+  activeFieldId?: string | null
+  onFieldSelect?: (id: string | null) => void
+  onFieldAddWithPatch?: (field: EditableField, patch: DocxPatch) => void
 }
 
 export function EditorStep(props: EditorStepProps) {
-  const { file, fileUrl, fileKind, fields, patches, ...editorProps } = props
+  const {
+    file, fileUrl, fileKind, fields, patches,
+    activeFieldId, onFieldSelect, onFieldAddWithPatch,
+    ...editorProps
+  } = props
 
   const fieldGroups = useMemo(() => {
     const map: Record<string, string> = {}
@@ -38,10 +45,19 @@ export function EditorStep(props: EditorStepProps) {
     return map
   }, [fields])
 
+  const activeField = activeFieldId
+    ? fields.find((f) => f._id === activeFieldId) ?? null
+    : null
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 lg:gap-6">
       <div className="order-1 lg:order-1">
-        <FieldsEditor fields={fields} {...editorProps} />
+        <FieldsEditor
+          fields={fields}
+          activeFieldId={activeFieldId}
+          onFieldSelect={onFieldSelect}
+          {...editorProps}
+        />
       </div>
       <div className="order-2 lg:order-2 lg:sticky lg:top-4 lg:self-start">
         <DocumentPreview
@@ -50,6 +66,28 @@ export function EditorStep(props: EditorStepProps) {
           fileKind={fileKind}
           highlightKeys={fields.map((f) => f.key).filter((k) => k.length > 0)}
           fieldGroups={fieldGroups}
+          activeFieldKey={activeField?.key ?? null}
+          onFieldClick={(key) => {
+            const field = fields.find((f) => f.key === key)
+            if (field) onFieldSelect?.(field._id)
+          }}
+          onBlankClick={(searchText) => {
+            const newId = crypto.randomUUID()
+            const key = `field_${Date.now()}`
+            onFieldAddWithPatch?.(
+              {
+                _id: newId,
+                key,
+                label: '',
+                type: 'text',
+                required: true,
+                filled_by: 'client',
+                group: 'other',
+              },
+              { search: searchText, replace: `{{${key}}}` }
+            )
+            onFieldSelect?.(newId)
+          }}
         />
         <FieldMappingPanel fields={fields} patches={patches} />
       </div>

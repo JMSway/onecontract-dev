@@ -14,6 +14,9 @@ interface DocumentPreviewProps {
   fileKind: 'pdf' | 'docx' | null
   highlightKeys?: string[]
   fieldGroups?: Record<string, string>
+  activeFieldKey?: string | null
+  onFieldClick?: (key: string) => void
+  onBlankClick?: (searchText: string) => void
 }
 
 const PDF_OPTIONS = {
@@ -22,7 +25,16 @@ const PDF_OPTIONS = {
   standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
 }
 
-export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys, fieldGroups }: DocumentPreviewProps) {
+export function DocumentPreview({
+  file,
+  fileUrl,
+  fileKind,
+  highlightKeys,
+  fieldGroups,
+  activeFieldKey,
+  onFieldClick,
+  onBlankClick,
+}: DocumentPreviewProps) {
   const [docxHtml, setDocxHtml] = useState<string>('')
   const [docxLoading, setDocxLoading] = useState(false)
   const [docxError, setDocxError] = useState<string | null>(null)
@@ -39,6 +51,8 @@ export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys, fieldG
   const fullContainerRef = useRef<HTMLDivElement | null>(null)
   const [inlineWidth, setInlineWidth] = useState(0)
   const [fullWidth, setFullWidth] = useState(0)
+
+  const docxContainerRef = useRef<HTMLDivElement>(null)
 
   const pdfSource = useMemo(() => file ?? fileUrl, [file, fileUrl])
 
@@ -73,14 +87,17 @@ export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys, fieldG
             const re = new RegExp(`\\{\\{\\s*${escaped}\\s*\\}\\}`, 'g')
             html = html.replace(
               re,
-              `<mark data-field-key="${key}" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:3px;padding:1px 4px;font-size:0.9em;cursor:pointer" title="${key}">{{${key}}}</mark>`
+              `<mark data-field-key="${key}" data-border-color="${colors.border}" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:3px;padding:1px 4px;font-size:0.9em;cursor:pointer" title="${key}">{{${key}}}</mark>`
             )
           }
         }
 
         html = html.replace(
-          /_{5,}/g,
-          '<mark style="background:#FEE2E2;border:1px dashed #EF4444;border-radius:3px;padding:1px 4px;font-size:0.85em" title="Пустое место — добавьте поле">____</mark>'
+          /([^<]{0,30})(_{5,})/g,
+          (_match, context: string, underscores: string) => {
+            const searchText = (context + underscores).trim()
+            return `${context}<mark class="blank-marker" data-search="${searchText.replace(/"/g, '&quot;')}" style="background:#FEE2E2;border:1px dashed #EF4444;border-radius:3px;padding:2px 6px;font-size:0.85em;cursor:pointer" title="Нажмите чтобы добавить поле">____</mark>`
+          }
         )
 
         if (!cancelled) setDocxHtml(html)
@@ -98,6 +115,48 @@ export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys, fieldG
       abortController?.abort()
     }
   }, [file, fileUrl, fileKind, highlightKeys?.join('|'), fieldGroups && JSON.stringify(fieldGroups)])
+
+  // Click delegation on docx marks
+  useEffect(() => {
+    const container = docxContainerRef.current
+    if (!container) return
+    const handleClick = (e: MouseEvent) => {
+      const mark = (e.target as HTMLElement).closest('mark')
+      if (!mark) return
+      const fieldKey = mark.getAttribute('data-field-key')
+      if (fieldKey && onFieldClick) { onFieldClick(fieldKey); return }
+      const searchText = mark.getAttribute('data-search')
+      if (searchText && onBlankClick) { onBlankClick(searchText); return }
+    }
+    container.addEventListener('click', handleClick)
+    return () => container.removeEventListener('click', handleClick)
+  }, [docxHtml, onFieldClick, onBlankClick])
+
+  // Active field highlight via DOM manipulation (no re-render needed)
+  useEffect(() => {
+    const container = docxContainerRef.current
+    if (!container) return
+    container.querySelectorAll<HTMLElement>('mark[data-field-key]').forEach((el) => {
+      const bc = el.dataset.borderColor ?? '#9CA3AF'
+      el.style.border = `1px solid ${bc}`
+      el.style.boxShadow = ''
+      el.style.animation = ''
+    })
+    if (!activeFieldKey) return
+    container.querySelectorAll<HTMLElement>(`mark[data-field-key="${activeFieldKey}"]`).forEach((el) => {
+      const bc = el.dataset.borderColor ?? '#0F52BA'
+      el.style.border = `2px solid ${bc}`
+      el.style.boxShadow = `0 0 0 2px ${bc}33`
+      el.style.animation = 'fieldPulse 1s ease-in-out infinite'
+    })
+  }, [activeFieldKey, docxHtml])
+
+  // Scroll to active mark in document
+  useEffect(() => {
+    if (!activeFieldKey || !docxContainerRef.current) return
+    const mark = docxContainerRef.current.querySelector(`mark[data-field-key="${activeFieldKey}"]`)
+    if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [activeFieldKey])
 
   useEffect(() => {
     if (!expanded) return
@@ -254,27 +313,14 @@ export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys, fieldG
         </div>
       )
     }
-    const srcDoc = `<!doctype html><html><head><meta charset="utf-8"><style>
-body{font:14px/1.7 Inter,system-ui,sans-serif;padding:32px 40px;color:#0D1B2A;margin:0;background:#fff;max-width:780px;margin:0 auto}
-p{margin:0 0 12px}
-h1,h2,h3,h4{color:#0D1B2A;margin:20px 0 10px;font-weight:600}
-h1{font-size:20px}
-h2{font-size:17px}
-h3{font-size:15px}
-table{border-collapse:collapse;margin:10px 0;width:100%}
-td,th{border:1px solid #D6E6F3;padding:8px 12px;vertical-align:top;text-align:left;white-space:pre-wrap}
-strong{font-weight:600}
-ul,ol{padding-left:22px;margin:0 0 12px}
-li{margin-bottom:4px}
-img{max-width:100%;height:auto}
-</style></head><body>${docxHtml}</body></html>`
     return (
-      <iframe
-        srcDoc={srcDoc}
-        sandbox=""
-        className="w-full h-full bg-white border-0"
-        title="Превью договора"
-      />
+      <div className="w-full h-full overflow-auto bg-white">
+        <div
+          ref={docxContainerRef}
+          className="docx-preview"
+          dangerouslySetInnerHTML={{ __html: docxHtml }}
+        />
+      </div>
     )
   }
 

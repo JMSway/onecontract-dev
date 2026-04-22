@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
+import { readMobizonKey } from '@/lib/mobizon'
 
 export async function POST(
   _request: NextRequest,
@@ -43,7 +44,7 @@ export async function POST(
 
   // Send SMS via Mobizon
   const recipient = (contract.recipient_phone ?? '').replace(/^\+/, '')
-  const apiKey = process.env.MOBIZON_API_KEY
+  const apiKey = readMobizonKey()
   if (!apiKey) return NextResponse.json({ error: 'SMS не настроен' }, { status: 500 })
 
   const smsRes = await fetch(
