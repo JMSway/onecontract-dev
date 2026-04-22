@@ -1,6 +1,6 @@
 import QRCode from 'qrcode'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { generateSignedContractPdf, addSignatureFooter } from './pdf'
+import { generateSignedContractPdf, addSignatureFooter, addWatermark } from './pdf'
 import { fillTemplate } from './docx'
 import { convertDocxToPdf, readConvertApiSecret } from './convertapi'
 import { ensureSignedPdfUrl } from './pdf-cache'
@@ -70,6 +70,7 @@ async function tryDocxPath(
   meta: SignedPdfMetadata,
 ): Promise<Uint8Array | null> {
   const convertKey = readConvertApiSecret()
+  console.log('[docx-path] convertKey present:', !!convertKey, 'template_docx_url:', template.template_docx_url)
   if (!convertKey) return null
   if (!template.template_docx_url) return null
 
@@ -87,6 +88,7 @@ async function tryDocxPath(
       data[f.key] = String(contractData[f.key] ?? '')
     }
 
+    console.log('[docx-path] filling', Object.keys(data).length, 'fields:', Object.keys(data).join(', '))
     const filled = fillTemplate(docxBytes, data)
     return await convertDocxToPdf(filled, convertKey, `${meta.contractId.slice(0, 8)}.docx`)
   } catch (err) {
@@ -201,8 +203,15 @@ export async function generateAndStorePdf(
     return { pdfUrl: null, via: 'none', error: err instanceof Error ? err.message : 'unknown' }
   }
 
+  try {
+    finalPdf = await addWatermark(finalPdf)
+  } catch (e) {
+    console.warn('[sign-pdf] watermark failed (non-fatal):', e)
+  }
+
   const pdfUrl = await uploadAndSign(supabase, meta.contractId, finalPdf)
   if (!pdfUrl) return { pdfUrl: null, via: 'none', error: 'upload failed' }
 
+  console.log('[sign-pdf] generated via:', via, 'basePdf:', !!basePdf, 'contractId:', meta.contractId)
   return { pdfUrl, via }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, MessageSquare, Mail, Copy, Check, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, MessageSquare, Mail, Copy, Check, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/dashboard/StatusBadge'
 import type { ContractStatus } from '@/lib/dashboard/types'
 import type { TemplateField } from '@/lib/types'
@@ -40,6 +40,8 @@ export default function ContractDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [sendingSms, setSendingSms] = useState(false)
+  const [smsResult, setSmsResult] = useState<'success' | 'error' | null>(null)
 
   useEffect(() => {
     fetch(`/api/contracts/${id}`)
@@ -70,6 +72,33 @@ export default function ContractDetailPage() {
     await navigator.clipboard.writeText(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSendSms = async () => {
+    if (!contract || sendingSms) return
+    setSendingSms(true)
+    setSmsResult(null)
+    try {
+      const res = await fetch(`/api/contracts/${contract.id}/send-sms`, { method: 'POST' })
+      const d = await res.json()
+      if (!res.ok) throw new Error(d.error ?? 'Ошибка')
+      setSmsResult('success')
+      setContract((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: prev.status === 'draft' ? ('sent' as ContractStatus) : prev.status,
+              sent_via: 'sms',
+            }
+          : prev
+      )
+      setTimeout(() => setSmsResult(null), 3000)
+    } catch {
+      setSmsResult('error')
+      setTimeout(() => setSmsResult(null), 3000)
+    } finally {
+      setSendingSms(false)
+    }
   }
 
   return (
@@ -206,11 +235,25 @@ export default function ContractDetailPage() {
                 )}
               </button>
               <button
-                disabled
-                title="Скоро"
-                className="flex-1 h-11 border border-[#A6C5D7] text-[#6B7E92] rounded-xl text-sm font-semibold flex items-center justify-center gap-2 opacity-50 cursor-not-allowed"
+                onClick={handleSendSms}
+                disabled={sendingSms || contract.status === 'signed'}
+                className={`flex-1 h-11 border rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                  smsResult === 'success'
+                    ? 'border-green-400 text-green-700 bg-green-50'
+                    : smsResult === 'error'
+                    ? 'border-red-400 text-red-700 bg-red-50'
+                    : 'border-[#A6C5D7] text-[#0D1B2A] hover:bg-[#D6E6F3]/30'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                <MessageSquare size={16} strokeWidth={1.5} /> Отправить SMS
+                {sendingSms ? (
+                  <Loader2 size={16} strokeWidth={1.5} className="animate-spin" />
+                ) : smsResult === 'success' ? (
+                  <><Check size={16} strokeWidth={1.5} /> SMS отправлен</>
+                ) : smsResult === 'error' ? (
+                  <><MessageSquare size={16} strokeWidth={1.5} /> Не удалось</>
+                ) : (
+                  <><MessageSquare size={16} strokeWidth={1.5} /> Отправить SMS</>
+                )}
               </button>
               <button
                 disabled

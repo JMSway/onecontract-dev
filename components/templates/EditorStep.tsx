@@ -33,7 +33,12 @@ export function EditorStep(props: EditorStepProps) {
         <FieldsEditor fields={fields} {...editorProps} />
       </div>
       <div className="order-2 lg:order-2 lg:sticky lg:top-4 lg:self-start">
-        <DocumentPreview file={file} fileUrl={fileUrl} fileKind={fileKind} />
+        <DocumentPreview
+          file={file}
+          fileUrl={fileUrl}
+          fileKind={fileKind}
+          highlightKeys={fields.map((f) => f.key).filter((k) => k.length > 0)}
+        />
         <FieldMappingPanel fields={fields} />
       </div>
     </div>

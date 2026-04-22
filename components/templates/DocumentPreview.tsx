@@ -11,6 +11,7 @@ interface DocumentPreviewProps {
   file: File | null
   fileUrl: string | null
   fileKind: 'pdf' | 'docx' | null
+  highlightKeys?: string[]
 }
 
 const PDF_OPTIONS = {
@@ -19,7 +20,7 @@ const PDF_OPTIONS = {
   standardFontDataUrl: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/standard_fonts/`,
 }
 
-export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProps) {
+export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys }: DocumentPreviewProps) {
   const [docxHtml, setDocxHtml] = useState<string>('')
   const [docxLoading, setDocxLoading] = useState(false)
   const [docxError, setDocxError] = useState<string | null>(null)
@@ -60,7 +61,25 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
           arrayBuffer = await response.arrayBuffer()
         }
         const result = await mammoth.convertToHtml({ arrayBuffer })
-        if (!cancelled) setDocxHtml(result.value)
+        let html = result.value
+
+        if (highlightKeys?.length) {
+          for (const key of highlightKeys) {
+            const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            const re = new RegExp(`\\{\\{\\s*${escaped}\\s*\\}\\}`, 'g')
+            html = html.replace(
+              re,
+              `<mark data-field-key="${key}" style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:3px;padding:1px 4px;font-size:0.9em;cursor:pointer">{{${key}}}</mark>`
+            )
+          }
+        }
+
+        html = html.replace(
+          /_{5,}/g,
+          '<mark style="background:#FEE2E2;border:1px dashed #EF4444;border-radius:3px;padding:1px 4px;font-size:0.85em" title="Пустое место — добавьте поле">____</mark>'
+        )
+
+        if (!cancelled) setDocxHtml(html)
       } catch (e) {
         if (!cancelled) {
           setDocxError('Не удалось отобразить документ')
@@ -74,7 +93,7 @@ export function DocumentPreview({ file, fileUrl, fileKind }: DocumentPreviewProp
       cancelled = true
       abortController?.abort()
     }
-  }, [file, fileUrl, fileKind])
+  }, [file, fileUrl, fileKind, highlightKeys?.join('|')])
 
   useEffect(() => {
     if (!expanded) return

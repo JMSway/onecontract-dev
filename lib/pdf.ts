@@ -1,4 +1,4 @@
-import { PDFDocument, rgb, PDFFont, PDFPage } from 'pdf-lib'
+import { PDFDocument, rgb, PDFFont, PDFPage, degrees } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import { NOTO_SANS_LATIN_WOFF_B64, NOTO_SANS_CYRILLIC_WOFF_B64 } from './fonts'
 
@@ -417,6 +417,31 @@ export async function addSignatureFooter(
   drawMixed(lastPage, 'Подписано через OneContract · ' + dateStr, lf, cf, tx, qrTop - 2, SZ, MUTED)
   drawMixed(lastPage, 'SHA-256: ' + params.sealHash.slice(0, 16) + '…', lf, cf, tx, qrTop - 13, SZ, TEXT)
   drawMixed(lastPage, `onecontract.kz/verify/${params.contractId}`, lf, cf, tx, qrTop - 24, SZ, BLUE)
+
+  return doc.save()
+}
+
+export async function addWatermark(pdfBytes: Uint8Array): Promise<Uint8Array> {
+  const doc = await PDFDocument.load(pdfBytes)
+  doc.registerFontkit(fontkit)
+  const lf = await doc.embedFont(Buffer.from(NOTO_SANS_LATIN_WOFF_B64, 'base64'))
+
+  const text = 'OneContract'
+  const size = 48
+  const textWidth = lf.widthOfTextAtSize(text, size)
+
+  for (const page of doc.getPages()) {
+    const { width, height } = page.getSize()
+    page.drawText(text, {
+      x: (width - textWidth) / 2,
+      y: height / 2,
+      size,
+      font: lf,
+      color: rgb(0.059, 0.322, 0.729),
+      opacity: 0.04,
+      rotate: degrees(45),
+    })
+  }
 
   return doc.save()
 }

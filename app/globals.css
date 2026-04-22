@@ -187,3 +187,20 @@ body {
   87.5%{ width: 48px;  height: 48px;  margin-top: 64px; margin-left: 64px; }
   100% { width: 112px; height: 48px;  margin-top: 64px; margin-left: 0px;  }
 }
+
+@keyframes confettiFall {
+  0%   { transform: translateY(-10px) scale(0); opacity: 1; }
+  20%  { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(60vh) rotate(720deg); opacity: 0; }
+}
+
+.confetti-piece {
+  position: fixed;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: confettiFall 2.5s ease-out forwards;
+  pointer-events: none;
+  z-index: 100;
+}

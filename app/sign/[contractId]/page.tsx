@@ -104,6 +104,7 @@ export default function SignPage() {
   const [pdfError, setPdfError] = useState<string | null>(null)
 
   const verifyRef = useRef<HTMLDivElement>(null)
+  const retryInFlightRef = useRef(false)
 
   useEffect(() => {
     fetch(`/api/sign/${contractId}`)
@@ -154,6 +155,31 @@ export default function SignPage() {
       ).then(setQrDataUrl)
     })
   }, [step, contractId])
+
+  useEffect(() => {
+    if (step !== 'success' || pdfUrl) return
+    let retries = 0
+    const maxRetries = 3
+    const interval = setInterval(async () => {
+      if (retries >= maxRetries) {
+        clearInterval(interval)
+        return
+      }
+      if (retryInFlightRef.current) return
+      retries++
+      try {
+        const r = await fetch(`/api/sign/${contractId}`)
+        const d = await r.json()
+        if (d.contract?.pdf_url) {
+          setPdfUrl(d.contract.pdf_url)
+          clearInterval(interval)
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [step, pdfUrl, contractId])
 
   const handleVerify = useCallback(async (code: string) => {
     if (verifyingOtp) return
@@ -251,6 +277,7 @@ export default function SignPage() {
 
     const handleRetryPdf = async () => {
       if (pdfGenerating) return
+      retryInFlightRef.current = true
       setPdfGenerating(true)
       setPdfError(null)
       try {
@@ -265,12 +292,26 @@ export default function SignPage() {
         setPdfError('Ошибка соединения. Попробуйте ещё раз.')
       } finally {
         setPdfGenerating(false)
+        retryInFlightRef.current = false
       }
     }
 
     return (
       <div className="min-h-screen bg-white flex flex-col">
         <Header />
+        {[
+          { left: '15%', delay: '0s', color: '#0F52BA' },
+          { left: '35%', delay: '0.15s', color: '#0F7B55' },
+          { left: '55%', delay: '0.3s', color: '#F59E0B' },
+          { left: '75%', delay: '0.1s', color: '#0F52BA' },
+          { left: '90%', delay: '0.25s', color: '#A6C5D7' },
+        ].map((c, i) => (
+          <div
+            key={i}
+            className="confetti-piece"
+            style={{ left: c.left, backgroundColor: c.color, animationDelay: c.delay }}
+          />
+        ))}
         <div className="flex-1 px-4 py-8 max-w-md mx-auto w-full text-center">
           <div className="w-20 h-20 bg-[#0F7B55]/10 rounded-full flex items-center justify-center mx-auto mb-4 animate-[successPop_0.4s_ease-out]">
             <CheckCircle2 size={40} className="text-[#0F7B55]" strokeWidth={1.5} />
@@ -287,6 +328,9 @@ export default function SignPage() {
               <div className="w-40 h-40 bg-[#F8FAFC] rounded-xl mx-auto animate-pulse" />
             )}
             <p className="text-xs text-[#6B7E92] mt-2">Сканируйте для проверки подписи</p>
+            <p className="text-[10px] text-[#A6C5D7] mt-1">
+              Хранится 5 лет по ГК РК ст.178
+            </p>
             <p className="text-[10px] text-[#A6C5D7] mt-0.5">
               onecontract.kz/verify/{contractId.slice(0, 8)}...
             </p>
