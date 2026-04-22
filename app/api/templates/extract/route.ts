@@ -24,15 +24,15 @@ function readGroqKey(): string | undefined {
 
 type Message = { role: string; content: string }
 
-const MAX_CHUNK_CHARS = 10000
-const MAX_TOKENS = 4000
+const MAX_CHUNK_CHARS = 8000
+const MAX_TOKENS = 5000
 const MAX_RETRY_WAIT_SEC = 30
 
 const GROQ_MODELS = [
-  'llama-3.1-8b-instant',
-  'openai/gpt-oss-20b',
   'meta-llama/llama-4-scout-17b-16e-instruct',
   'llama-3.3-70b-versatile',
+  'openai/gpt-oss-20b',
+  'llama-3.1-8b-instant',
 ]
 
 const OPENROUTER_MODELS = [
@@ -272,38 +272,100 @@ function autoFilledBy(key: string): TemplateField['filled_by'] {
 
 function parseAIResponse(content: string): { fields: TemplateField[]; patches: DocxPatch[] } {
   const empty = { fields: [] as TemplateField[], patches: [] as DocxPatch[] }
+  const clean = content.replace(/```(?:json)?/g, '').replace(/```/g, '').trim()
+
+  // Strategy 1: full JSON object parse
+  const objMatch = clean.match(/\{[\s\S]*\}/)
+  if (objMatch) {
+    try {
+      const parsed = JSON.parse(objMatch[0])
+      return {
+        fields: normalizeFields(parsed.fields),
+        patches: normalizePatches(parsed.patches),
+      }
+    } catch {
+      // fall through to partial recovery
+    }
+  }
+
+  // Strategy 2: recover from truncated JSON (max_tokens cut)
+  const fieldsArr = extractPartialArray(clean, 'fields')
+  if (fieldsArr.length > 0) {
+    const patchesArr = extractPartialArray(clean, 'patches')
+    return {
+      fields: normalizeFields(fieldsArr),
+      patches: normalizePatches(patchesArr),
+    }
+  }
+
+  // Strategy 3: bare array of fields (back-compat)
+  const arrMatch = clean.match(/\[[\s\S]*\]/)
+  if (arrMatch) {
+    try {
+      const parsed = JSON.parse(arrMatch[0])
+      if (Array.isArray(parsed)) {
+        return { fields: normalizeFields(parsed), patches: [] }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return empty
+}
+
+/**
+ * Extract a named array from (possibly truncated) JSON. Collects complete
+ * top-level {...} objects from `"<key>": [ ... ]`, stopping at a closing `]`
+ * or the first truncated object. Used to recover fields/patches even when
+ * `max_tokens` cut the response mid-JSON.
+ */
+function extractPartialArray(clean: string, key: string): unknown[] {
+  const keyRe = new RegExp(`"${key}"\\s*:\\s*\\[`)
+  const keyMatch = keyRe.exec(clean)
+  if (!keyMatch) return []
+
+  const arrStart = clean.indexOf('[', keyMatch.index)
+  if (arrStart === -1) return []
+
+  const objects: string[] = []
+  let i = arrStart + 1
+
+  while (i < clean.length) {
+    while (i < clean.length && (clean[i] === ',' || /\s/.test(clean[i]))) i++
+    if (i >= clean.length || clean[i] === ']') break
+    if (clean[i] !== '{') break
+
+    let depth = 1
+    let j = i + 1
+    let inStr = false
+    let escape = false
+    while (j < clean.length && depth > 0) {
+      const c = clean[j]
+      if (escape) {
+        escape = false
+      } else if (c === '\\') {
+        escape = true
+      } else if (c === '"') {
+        inStr = !inStr
+      } else if (!inStr) {
+        if (c === '{') depth++
+        else if (c === '}') depth--
+      }
+      j++
+    }
+    if (depth > 0) break  // truncated mid-object — stop
+    objects.push(clean.slice(i, j))
+    i = j
+  }
+
+  if (objects.length === 0) return []
+
   try {
-    const clean = content.replace(/```(?:json)?/g, '').replace(/```/g, '').trim()
-
-    const objMatch = clean.match(/\{[\s\S]*\}/)
-    if (objMatch) {
-      try {
-        const parsed = JSON.parse(objMatch[0])
-        return {
-          fields: normalizeFields(parsed.fields),
-          patches: normalizePatches(parsed.patches),
-        }
-      } catch {
-        // fall through to array-only parsing
-      }
-    }
-
-    // Back-compat: some models may still return a bare array of fields
-    const arrMatch = clean.match(/\[[\s\S]*\]/)
-    if (arrMatch) {
-      try {
-        const parsed = JSON.parse(arrMatch[0])
-        if (Array.isArray(parsed)) {
-          return { fields: normalizeFields(parsed), patches: [] }
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    return empty
+    const parsed = JSON.parse('[' + objects.join(',') + ']')
+    return Array.isArray(parsed) ? parsed : []
   } catch {
-    return empty
+    return []
   }
 }
 
