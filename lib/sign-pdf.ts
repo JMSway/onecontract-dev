@@ -70,9 +70,16 @@ async function tryDocxPath(
   meta: SignedPdfMetadata,
 ): Promise<Uint8Array | null> {
   const convertKey = readConvertApiSecret()
-  console.log('[docx-path] convertKey present:', !!convertKey, 'template_docx_url:', template.template_docx_url)
-  if (!convertKey) return null
-  if (!template.template_docx_url) return null
+  if (!convertKey) {
+    console.warn('[docx-path] SKIP: CONVERTAPI_SECRET not set')
+    return null
+  }
+  if (!template.template_docx_url) {
+    console.warn('[docx-path] SKIP: template has no normalized DOCX (template_docx_url is null)')
+    console.warn('[docx-path] template fields:', template.fields?.length ?? 0, 'source_file_url:', template.source_file_url)
+    return null
+  }
+  console.log('[docx-path] convertKey present: true, template_docx_url:', template.template_docx_url)
 
   try {
     const { data: docxBlob, error: dlErr } = await supabase.storage
@@ -139,15 +146,14 @@ async function summaryOnlyFallback(
 }
 
 /**
- * Generate the signed PDF for a contract with layout preservation:
- *   1. Cache: return existing PDF if it's already in storage (skip ConvertAPI)
- *   2. DOCX path: fill `{{placeholders}}` in normalized docx → ConvertAPI
- *   3. Source PDF fallback: serve original template (docx-as-is or pdf) unmodified
- *   4. Final fallback: summary-only pdf-lib render
+ * Generate the signed PDF for a contract:
+ *   1. Cache: return existing signed PDF if already in storage
+ *   2. DOCX path: fill {{placeholders}} → ConvertAPI → PDF with data inside
+ *   3. Source PDF fallback: original file + QR seal footer (data NOT inserted)
+ *   4. Last-resort: summary-only pdf-lib render (no original layout)
  *
- * In all successful paths, a summary page and a seal page are appended so the
- * resulting PDF always contains the filled values and an HMAC-verifiable QR code.
- * Uploads to `contracts/{contractId}.pdf` with a fresh 1-year signed URL.
+ * NOTE: Summary pages are added ONLY in path 4 (last resort).
+ * Paths 2 and 3 add only a QR seal footer at bottom of last page.
  */
 export async function generateAndStorePdf(
   supabase: SupabaseClient,
@@ -182,6 +188,13 @@ export async function generateAndStorePdf(
     basePdf = await tryOriginalPdfPath(supabase, template.source_file_url ?? null)
     if (basePdf) via = 'source_pdf'
   }
+
+  if (via === 'source_pdf') {
+    console.warn('[sign-pdf] WARNING: Using source_pdf fallback — data NOT inserted into document')
+    console.warn('[sign-pdf] Client will see original document without filled fields')
+    console.warn('[sign-pdf] Fix: ensure template has template_docx_url and CONVERTAPI_SECRET is set')
+  }
+  console.log('[sign-pdf] generating via:', via)
 
   let finalPdf: Uint8Array
   try {

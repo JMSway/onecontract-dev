@@ -2,18 +2,12 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import {
   FileText, CheckCircle2, Loader2, Download,
-  Lock, Shield, Share2, X, ChevronRight, ExternalLink,
+  Lock, Shield, Share2, ChevronDown,
 } from 'lucide-react'
 import { BoxLoader } from '@/components/ui/BoxLoader'
 import type { TemplateField } from '@/lib/types'
-
-const DocumentPreview = dynamic(
-  () => import('@/components/templates/DocumentPreview').then(m => ({ default: m.DocumentPreview })),
-  { ssr: false },
-)
 
 type SignStep = 'form' | 'verify' | 'otp' | 'success'
 
@@ -82,7 +76,7 @@ export default function SignPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
   const [agreedTerms, setAgreedTerms] = useState(false)
   const [agreedPD, setAgreedPD] = useState(false)
-  const [showDetails, setShowDetails] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
 
   const [step, setStep] = useState<SignStep>('form')
   const [signedAt, setSignedAt] = useState('')
@@ -544,18 +538,70 @@ export default function SignPage() {
           </div>
         </div>
 
-        {/* Block 2 — Contract preview button (opens modal overlay) */}
-        <button
-          type="button"
-          onClick={() => setShowDetails(true)}
-          className="w-full flex items-center justify-between px-4 py-3 border border-[#D6E6F3] rounded-2xl shadow-sm bg-white hover:bg-[#D6E6F3]/20 transition-colors"
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold text-[#0D1B2A]">
-            <FileText size={15} strokeWidth={1.5} className="text-[#0F52BA]" />
-            Посмотреть полный договор
-          </span>
-          <ChevronRight size={16} strokeWidth={1.5} className="text-[#6B7E92]" />
-        </button>
+        {/* Block 2 — Inline contract preview (collapsible) */}
+        {template.source_file_url && (
+          <div className="border border-[#D6E6F3] rounded-2xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowPreview((p) => !p)}
+              className="w-full flex items-center justify-between px-4 py-3.5 bg-[#F8FAFC] hover:bg-[#EDF4FB] transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <FileText size={16} strokeWidth={1.5} className="text-[#0F52BA]" />
+                <span className="text-sm font-medium text-[#0D1B2A]">Посмотреть полный договор</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {showPreview && (
+                  <a
+                    href={template.source_file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="text-xs text-[#0F52BA] hover:underline"
+                  >
+                    Открыть PDF
+                  </a>
+                )}
+                <ChevronDown
+                  size={16}
+                  strokeWidth={1.5}
+                  className={`text-[#6B7E92] transition-transform ${showPreview ? 'rotate-180' : ''}`}
+                />
+              </div>
+            </button>
+            {showPreview && (
+              <div className="bg-white">
+                <iframe
+                  src={`${template.source_file_url}#toolbar=0&navpanes=0&scrollbar=1`}
+                  className="w-full"
+                  style={{ height: '70vh', minHeight: 400, border: 'none' }}
+                  title="Договор"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Manager-filled contract conditions */}
+        {managerFields.some((f) => contract.data[f.key]) && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
+              Условия договора
+            </p>
+            <div className="border border-[#D6E6F3] rounded-xl divide-y divide-[#F0F4F8]">
+              {managerFields.map((f) => {
+                const val = contract.data[f.key]
+                if (!val) return null
+                return (
+                  <div key={f.key} className="flex justify-between items-start gap-3 px-4 py-2.5">
+                    <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
+                    <span className="text-sm font-medium text-[#0D1B2A] text-right">{val}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Block 3 — Client fields */}
         {clientFields.length > 0 && (
@@ -573,27 +619,50 @@ export default function SignPage() {
                     {f.label}
                     {f.required && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
-                  <input
-                    id={`field-${f.key}`}
-                    type={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
-                    inputMode={f.type === 'iin' || f.type === 'number' ? 'numeric' : undefined}
-                    value={clientData[f.key] ?? ''}
-                    onChange={(e) => {
-                      let val = e.target.value
-                      if (f.type === 'iin') val = formatIIN(val)
-                      setClientData((prev) => ({ ...prev, [f.key]: val }))
-                      const err = validateField(f, val)
-                      setFieldErrors((prev) => ({ ...prev, [f.key]: err }))
-                    }}
-                    onBlur={(e) => {
-                      const err = validateField(f, e.target.value)
-                      setFieldErrors((prev) => ({ ...prev, [f.key]: err }))
-                    }}
-                    placeholder={smartPlaceholder(f)}
-                    className={`w-full h-12 border rounded-xl px-4 text-base text-[#0D1B2A] placeholder:text-[#A6C5D7] focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 transition-colors ${
-                      hasError ? 'border-red-400 focus:border-red-400' : 'border-[#D6E6F3] focus:border-[#0F52BA]'
-                    }`}
-                  />
+                  {f.type === 'date' ? (
+                    <input
+                      id={`field-${f.key}`}
+                      type="date"
+                      value={(() => {
+                        const v = clientData[f.key] ?? ''
+                        if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v
+                        const m = v.match(/^(\d{2})\.(\d{2})\.(\d{4})$/)
+                        if (m) return `${m[3]}-${m[2]}-${m[1]}`
+                        return ''
+                      })()}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setClientData((prev) => ({ ...prev, [f.key]: val }))
+                        const fieldErr = validateField(f, val)
+                        setFieldErrors((prev) => ({ ...prev, [f.key]: fieldErr }))
+                      }}
+                      className={`w-full h-12 border rounded-xl px-4 text-base text-[#0D1B2A] focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 transition-colors ${
+                        hasError ? 'border-red-400 focus:border-red-400' : 'border-[#D6E6F3] focus:border-[#0F52BA]'
+                      }`}
+                    />
+                  ) : (
+                    <input
+                      id={`field-${f.key}`}
+                      type={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
+                      inputMode={f.type === 'iin' || f.type === 'number' ? 'numeric' : undefined}
+                      value={clientData[f.key] ?? ''}
+                      onChange={(e) => {
+                        let val = e.target.value
+                        if (f.type === 'iin') val = formatIIN(val)
+                        setClientData((prev) => ({ ...prev, [f.key]: val }))
+                        const fieldErr = validateField(f, val)
+                        setFieldErrors((prev) => ({ ...prev, [f.key]: fieldErr }))
+                      }}
+                      onBlur={(e) => {
+                        const fieldErr = validateField(f, e.target.value)
+                        setFieldErrors((prev) => ({ ...prev, [f.key]: fieldErr }))
+                      }}
+                      placeholder={smartPlaceholder(f)}
+                      className={`w-full h-12 border rounded-xl px-4 text-base text-[#0D1B2A] placeholder:text-[#A6C5D7] focus:outline-none focus:ring-2 focus:ring-[#0F52BA]/30 transition-colors ${
+                        hasError ? 'border-red-400 focus:border-red-400' : 'border-[#D6E6F3] focus:border-[#0F52BA]'
+                      }`}
+                    />
+                  )}
                   {hasError && (
                     <p className="text-xs text-red-500 mt-1">{err}</p>
                   )}
@@ -729,89 +798,6 @@ export default function SignPage() {
         </p>
       </div>
 
-      {/* Modal overlay — full contract preview */}
-      {showDetails && (
-        <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm animate-[fadeIn_0.15s_ease-out]"
-          onClick={() => setShowDetails(false)}
-        >
-          <div
-            className="relative bg-white w-full sm:max-w-xl sm:max-h-[90vh] h-screen sm:h-auto sm:rounded-2xl shadow-xl flex flex-col overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#D6E6F3] shrink-0">
-              <div>
-                <h2 className="text-base font-bold text-[#0D1B2A]">Полный договор</h2>
-                <p className="text-xs text-[#6B7E92] mt-0.5">{template.name}</p>
-              </div>
-              <button
-                onClick={() => setShowDetails(false)}
-                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-[#D6E6F3]/40 transition-colors"
-                aria-label="Закрыть"
-              >
-                <X size={20} strokeWidth={1.5} className="text-[#0D1B2A]" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-              {template.source_file_url ? (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-2">
-                    Оригинал документа
-                  </p>
-                  <DocumentPreview
-                    file={null}
-                    fileUrl={template.source_file_url}
-                    fileKind={template.source_file_url.toLowerCase().includes('.docx') ? 'docx' : 'pdf'}
-                  />
-                  <a
-                    href={template.source_file_url}
-                    download
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#0F52BA] font-medium hover:underline"
-                  >
-                    <Download size={13} strokeWidth={1.5} />
-                    Скачать оригинал
-                  </a>
-                </div>
-              ) : (
-                <div className="border border-[#D6E6F3] rounded-xl px-4 py-6 bg-[#F8FAFC] text-center">
-                  <FileText size={24} className="text-[#A6C5D7] mx-auto mb-2" strokeWidth={1.5} />
-                  <p className="text-sm text-[#6B7E92]">Оригинал документа недоступен.</p>
-                  <p className="text-xs text-[#A6C5D7] mt-0.5">См. условия ниже.</p>
-                </div>
-              )}
-              {managerFields.some((f) => contract.data[f.key]) && (
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6B7E92] mb-3">
-                    Условия договора
-                  </p>
-                  <div className="border border-[#D6E6F3] rounded-xl divide-y divide-[#F0F4F8]">
-                    {managerFields.map((f) => {
-                      const val = contract.data[f.key]
-                      if (!val) return null
-                      return (
-                        <div key={f.key} className="flex justify-between items-start gap-3 px-4 py-2.5">
-                          <span className="text-xs text-[#6B7E92] shrink-0">{f.label}</span>
-                          <span className="text-sm font-medium text-[#0D1B2A] text-right">{val}</span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-5 py-4 border-t border-[#D6E6F3] shrink-0 bg-white">
-              <button
-                onClick={() => setShowDetails(false)}
-                className="w-full h-11 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-colors"
-              >
-                Закрыть и продолжить
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

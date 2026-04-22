@@ -14,7 +14,28 @@ interface TemplateField {
 const validators: Record<FieldType, (v: string) => boolean> = {
   text: (v) => typeof v === 'string' && v.trim().length > 0 && v.length <= 500,
   number: (v) => /^-?\d+(\.\d+)?$/.test(v),
-  date: (v) => typeof v === 'string' && !isNaN(Date.parse(v)),
+  date: (v) => {
+    if (!v || typeof v !== 'string') return false
+    if (!isNaN(Date.parse(v))) return true
+    const ddmmyyyy = v.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+    if (ddmmyyyy) {
+      const [, d, m, y] = ddmmyyyy
+      const date = new Date(+y, +m - 1, +d)
+      return date.getFullYear() === +y && date.getMonth() === +m - 1
+    }
+    const months: Record<string, number> = {
+      'января': 0, 'февраля': 1, 'марта': 2, 'апреля': 3, 'мая': 4, 'июня': 5,
+      'июля': 6, 'августа': 7, 'сентября': 8, 'октября': 9, 'ноября': 10, 'декабря': 11,
+      'january': 0, 'february': 1, 'march': 2, 'april': 3, 'may': 4, 'june': 5,
+      'july': 6, 'august': 7, 'september': 8, 'october': 9, 'november': 10, 'december': 11,
+    }
+    const textMatch = v.toLowerCase().match(/^(\d{1,2})\s+([а-яa-z]+)\s+(\d{4})$/)
+    if (textMatch) {
+      const [, , mName] = textMatch
+      return months[mName] !== undefined
+    }
+    return false
+  },
   iin: (v) => /^\d{12}$/.test(v),
   phone: (v) => /^\+?\d{10,15}$/.test(v.replace(/[\s\-()]/g, '')),
   email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
