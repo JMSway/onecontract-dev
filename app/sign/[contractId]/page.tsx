@@ -37,11 +37,15 @@ function formatIIN(value: string) {
 }
 
 function formatPhone(value: string) {
-  const digits = value.replace(/\D/g, '')
-  if (digits.startsWith('8')) return '+7' + digits.slice(1)
-  if (digits.length > 0 && !digits.startsWith('7')) return '+7' + digits
-  return digits.length > 0 ? '+' + digits : ''
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+  if (!digits) return ''
+  if (digits.length === 10) return '+7' + digits
+  if (digits[0] === '8') return '+7' + digits.slice(1)
+  if (digits[0] === '7') return '+' + digits
+  return '+7' + digits
 }
+
+const KZ_PHONE_RE = /^\+7\d{10}$/
 
 function smartPlaceholder(f: TemplateField): string {
   if (f.placeholder) return f.placeholder
@@ -97,6 +101,7 @@ export default function SignPage() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([])
 
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
   const [pdfUrl, setPdfUrl] = useState<string | null>(null)
@@ -387,16 +392,33 @@ export default function SignPage() {
   // ─── HANDLERS ──────────────────────────────────────────────
   const handleSignClick = async () => {
     if (!canSign) return
+    setSubmitError(null)
     if (clientFields.length > 0) {
       setSubmitting(true)
       try {
-        await fetch(`/api/sign/${contractId}/fill`, {
+        const r = await fetch(`/api/sign/${contractId}/fill`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ clientData }),
         })
-      } catch { /* non-fatal */ }
-      finally { setSubmitting(false) }
+        const d = await r.json() as { fieldErrors?: Record<string, string>; error?: string }
+        if (!r.ok) {
+          if (d.fieldErrors && Object.keys(d.fieldErrors).length > 0) {
+            setFieldErrors(d.fieldErrors)
+            const firstErrKey = Object.keys(d.fieldErrors)[0]
+            document.getElementById(`field-${firstErrKey}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          } else {
+            setSubmitError(d.error ?? 'Не удалось сохранить данные')
+          }
+          setSubmitting(false)
+          return
+        }
+      } catch {
+        setSubmitError('Ошибка соединения. Проверьте интернет и попробуйте ещё раз.')
+        setSubmitting(false)
+        return
+      }
+      setSubmitting(false)
     }
     setStep('verify')
   }
@@ -413,8 +435,13 @@ export default function SignPage() {
       const d = await r.json()
       if (d.match) {
         setSendingOtp(true)
-        await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
+        const otpRes = await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
         setSendingOtp(false)
+        if (!otpRes.ok) {
+          const err = await otpRes.json().catch(() => ({ error: null }))
+          setPhoneError(err.error ?? 'Не удалось отправить SMS. Попробуйте позже.')
+          return
+        }
         setStep('otp')
       } else {
         setPhoneError(d.error ?? 'Номер не совпадает с указанным в договоре')
@@ -477,7 +504,25 @@ export default function SignPage() {
     setCanResend(false)
     setOtpError(null)
     setOtpDigits(['', '', '', '', '', ''])
-    await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
+    try {
+      const r = await fetch(`/api/sign/${contractId}/send-otp`, { method: 'POST' })
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({ error: null }))
+        setOtpError(err.error ?? 'Не удалось отправить SMS')
+        setCanResend(true)
+        return
+      }
+      setCountdown(59)
+      const timer = setInterval(() => {
+        setCountdown((c) => {
+          if (c <= 1) { setCanResend(true); clearInterval(timer); return 0 }
+          return c - 1
+        })
+      }, 1000)
+    } catch {
+      setOtpError('Ошибка соединения')
+      setCanResend(true)
+    }
   }
 
   // ─── MAIN FORM ─────────────────────────────────────────────
@@ -524,11 +569,12 @@ export default function SignPage() {
               const hasError = !!err
               return (
                 <div key={f.key}>
-                  <label className="block text-xs font-medium text-[#6B7E92] mb-1">
+                  <label className="block text-xs font-medium text-[#6B7E92] mb-1" htmlFor={`field-${f.key}`}>
                     {f.label}
                     {f.required && <span className="text-red-500 ml-0.5">*</span>}
                   </label>
                   <input
+                    id={`field-${f.key}`}
                     type={f.type === 'email' ? 'email' : f.type === 'phone' ? 'tel' : 'text'}
                     inputMode={f.type === 'iin' || f.type === 'number' ? 'numeric' : undefined}
                     value={clientData[f.key] ?? ''}
@@ -585,13 +631,20 @@ export default function SignPage() {
 
         {/* Block 6 — Sign button (hidden once verification started) */}
         {step === 'form' && (
-          <button
-            onClick={handleSignClick}
-            disabled={!canSign || submitting}
-            className="w-full h-14 bg-[#0F52BA] hover:bg-blue-700 text-white text-lg font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
-          >
-            {submitting ? <Loader2 size={20} className="animate-spin" /> : 'Подписать договор'}
-          </button>
+          <div className="space-y-2">
+            {submitError && (
+              <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                {submitError}
+              </div>
+            )}
+            <button
+              onClick={handleSignClick}
+              disabled={!canSign || submitting}
+              className="w-full h-14 bg-[#0F52BA] hover:bg-blue-700 text-white text-lg font-semibold rounded-xl disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+            >
+              {submitting ? <Loader2 size={20} className="animate-spin" /> : 'Подписать договор'}
+            </button>
+          </div>
         )}
 
         {/* Inline verify phone block */}
@@ -613,7 +666,7 @@ export default function SignPage() {
                 )}
                 <button
                   onClick={handleVerifyPhone}
-                  disabled={phone.length < 11 || verifyingPhone || sendingOtp}
+                  disabled={!KZ_PHONE_RE.test(phone) || verifyingPhone || sendingOtp}
                   className="w-full h-12 bg-[#0F52BA] hover:bg-blue-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
                 >
                   {verifyingPhone || sendingOtp

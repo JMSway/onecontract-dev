@@ -33,7 +33,7 @@ async function callAI(messages: Message[]): Promise<string | null> {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096 }),
+          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 8192 }),
         })
         if (!res.ok) { console.warn(`[extract] Groq ${model} error ${res.status}`); continue }
         const json = await res.json()
@@ -56,7 +56,7 @@ async function callAI(messages: Message[]): Promise<string | null> {
             'HTTP-Referer': 'https://onecontract.kz',
             'X-Title': 'OneContract',
           },
-          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096 }),
+          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 8192 }),
         })
         if (!res.ok) { console.warn(`[extract] OpenRouter ${model} error ${res.status}`); continue }
         const json = await res.json()
@@ -104,8 +104,13 @@ export async function POST(request: NextRequest) {
   }
 
   const fields = dedupeFields(parsed.fields)
-  const patches = dedupePatches(validatePatches(parsed.patches, fields, excerpt))
-  console.info(`[extract] → ${fields.length} fields, ${patches.length} patches`)
+  const validated = validatePatches(parsed.patches, fields, excerpt)
+  const patches = dedupePatches(validated)
+  const droppedPatches = parsed.patches.length - validated.length
+  const droppedFields = parsed.fields.length - fields.length
+  console.info(
+    `[extract] → ${fields.length} fields (${droppedFields} deduped), ${patches.length} patches (${droppedPatches} invalid/ambiguous)`
+  )
 
   return NextResponse.json({ fields, patches })
 }
@@ -209,11 +214,17 @@ function levenshtein(a: string, b: string): number {
 
 function dedupeFields(fields: TemplateField[]): TemplateField[] {
   const kept: TemplateField[] = []
+  const seenKeys = new Set<string>()
   for (const f of fields) {
-    const isDup = kept.some(
-      (k) => levenshtein(k.label.toLowerCase(), f.label.toLowerCase()) < 4,
-    )
-    if (!isDup) kept.push(f)
+    if (seenKeys.has(f.key)) continue
+    const norm = f.label.toLowerCase().replace(/\s+/g, ' ').trim()
+    const isDup = kept.some((k) => {
+      const kNorm = k.label.toLowerCase().replace(/\s+/g, ' ').trim()
+      return kNorm === norm || levenshtein(kNorm, norm) <= 1
+    })
+    if (isDup) continue
+    seenKeys.add(f.key)
+    kept.push(f)
   }
   return kept
 }
