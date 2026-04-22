@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { readMobizonKey } from '@/lib/mobizon'
+import { sendSms } from '@/lib/mobizon'
 
 export async function POST(
   _request: NextRequest,
@@ -55,26 +55,12 @@ export async function POST(
   const orgName = org?.name ?? 'OneContract'
 
   const signingUrl = `https://onecontract.kz/sign/${contract.id}`
-
-  const apiKey = readMobizonKey()
-  if (!apiKey) return NextResponse.json({ error: 'SMS не настроен' }, { status: 500 })
-
-  const recipient = contract.recipient_phone.replace(/^\+/, '')
   const text = `${orgName}: подпишите договор по ссылке ${signingUrl}`
 
-  const smsRes = await fetch(
-    `https://api.mobizon.kz/service/message/sendSmsMessage?output=json&apiKey=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recipient, text }),
-    }
-  )
-
-  const smsData = (await smsRes.json().catch(() => null)) as { code?: number; message?: string } | null
-  if (!smsData || smsData.code !== 0) {
+  const result = await sendSms(contract.recipient_phone, text)
+  if (!result.ok) {
     return NextResponse.json(
-      { error: smsData?.message ?? 'Ошибка отправки SMS' },
+      { error: result.error, mobizonCode: result.code },
       { status: 500 }
     )
   }

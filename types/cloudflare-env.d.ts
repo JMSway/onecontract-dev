@@ -4,6 +4,7 @@ declare global {
     CONVERTAPI_SECRET?: string
     SEAL_SECRET?: string
     MOBIZON_API_KEY?: string
+    MOBIZON_SENDER_NAME?: string
     RESEND_API_KEY?: string
     GROQ_API_KEY?: string
   }

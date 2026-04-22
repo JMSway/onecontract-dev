@@ -42,6 +42,7 @@ export default function ContractDetailPage() {
   const [copied, setCopied] = useState(false)
   const [sendingSms, setSendingSms] = useState(false)
   const [smsResult, setSmsResult] = useState<'success' | 'error' | null>(null)
+  const [smsError, setSmsError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`/api/contracts/${id}`)
@@ -78,6 +79,7 @@ export default function ContractDetailPage() {
     if (!contract || sendingSms) return
     setSendingSms(true)
     setSmsResult(null)
+    setSmsError(null)
     try {
       const res = await fetch(`/api/contracts/${contract.id}/send-sms`, { method: 'POST' })
       const d = await res.json()
@@ -93,9 +95,9 @@ export default function ContractDetailPage() {
           : prev
       )
       setTimeout(() => setSmsResult(null), 3000)
-    } catch {
+    } catch (e: unknown) {
       setSmsResult('error')
-      setTimeout(() => setSmsResult(null), 3000)
+      setSmsError(e instanceof Error ? e.message : 'Ошибка отправки SMS')
     } finally {
       setSendingSms(false)
     }
@@ -263,6 +265,18 @@ export default function ContractDetailPage() {
                 <Mail size={16} strokeWidth={1.5} /> Отправить Email
               </button>
             </div>
+            {smsError && (
+              <div className="mt-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-xs text-red-700">
+                <AlertTriangle size={14} strokeWidth={1.5} className="mt-0.5 shrink-0" />
+                <div className="flex-1">
+                  <p className="font-semibold mb-0.5">SMS не отправлен</p>
+                  <p className="text-red-600">{smsError}</p>
+                  <p className="mt-2 text-red-500">
+                    Пока не настроено — используйте кнопку «Копировать ссылку» и отправьте через WhatsApp или Telegram.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
