@@ -10,6 +10,7 @@ interface EditorStepProps {
   file: File | null
   fileUrl: string | null
   fileKind: 'pdf' | 'docx' | null
+  sourceFilePath?: string | null
   templateName: string
   onNameChange: (v: string) => void
   description: string
@@ -32,7 +33,7 @@ interface EditorStepProps {
 
 export function EditorStep(props: EditorStepProps) {
   const {
-    file, fileUrl, fileKind, fields, patches,
+    file, fileUrl, fileKind, sourceFilePath, fields, patches,
     activeFieldId, onFieldSelect,
     onFieldAddWithPatch: _onFieldAddWithPatch,
     ...editorProps
@@ -54,6 +55,9 @@ export function EditorStep(props: EditorStepProps) {
           file={file}
           fileUrl={fileUrl}
           fileKind={fileKind}
+          fields={fields}
+          patches={patches ?? []}
+          sourceFilePath={sourceFilePath ?? null}
         />
         <FieldMappingPanel fields={fields} patches={patches} />
       </div>

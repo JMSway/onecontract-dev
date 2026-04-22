@@ -155,6 +155,7 @@ export default function NewTemplatePage() {
             file={file}
             fileUrl={fileUrl}
             fileKind={fileKind}
+            sourceFilePath={fileStoragePath}
             templateName={templateName}
             onNameChange={setTemplateName}
             description={description}
