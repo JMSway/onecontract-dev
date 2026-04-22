@@ -5,7 +5,7 @@ import { Expand, X, FileText, ZoomIn, ZoomOut } from 'lucide-react'
 import { BoxLoader } from '@/components/ui/BoxLoader'
 import { Document, Page, pdfjs } from 'react-pdf'
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
 interface DocumentPreviewProps {
   file: File | null
@@ -15,9 +15,9 @@ interface DocumentPreviewProps {
 }
 
 const PDF_OPTIONS = {
-  cMapUrl: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/cmaps/`,
+  cMapUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
   cMapPacked: true,
-  standardFontDataUrl: `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/standard_fonts/`,
+  standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
 }
 
 export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys }: DocumentPreviewProps) {

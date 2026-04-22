@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: ['pdf-lib', '@pdf-lib/fontkit'],
 }
 
 export default nextConfig

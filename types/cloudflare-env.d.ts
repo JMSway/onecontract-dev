@@ -5,6 +5,7 @@ declare global {
     SEAL_SECRET?: string
     MOBIZON_API_KEY?: string
     RESEND_API_KEY?: string
+    GROQ_API_KEY?: string
   }
 }
 

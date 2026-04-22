@@ -13,6 +13,59 @@ function readOpenrouterKey(): string | undefined {
   return process.env.OPENROUTER_API_KEY
 }
 
+function readGroqKey(): string | undefined {
+  try {
+    const { env } = getCloudflareContext()
+    if (env?.GROQ_API_KEY) return env.GROQ_API_KEY
+  } catch {}
+  return process.env.GROQ_API_KEY
+}
+
+async function callAI(prompt: string): Promise<string | null> {
+  // Level 1: Groq (primary — fast and stable)
+  const groqKey = readGroqKey()
+  if (groqKey) {
+    for (const model of ['llama-3.3-70b-versatile', 'gemma2-9b-it']) {
+      try {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 4096 }),
+        })
+        if (!res.ok) { console.warn(`[extract] Groq ${model} error ${res.status}`); continue }
+        const json = await res.json()
+        const content: string = json.choices?.[0]?.message?.content ?? ''
+        if (content) { console.info(`[extract] Groq ${model} success`); return content }
+      } catch (e) { console.warn(`[extract] Groq ${model} threw:`, e) }
+    }
+  }
+
+  // Level 2: OpenRouter (fallback)
+  const openrouterKey = readOpenrouterKey()
+  if (openrouterKey) {
+    for (const model of ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free', 'google/gemma-3-12b-it:free']) {
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${openrouterKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://onecontract.kz',
+            'X-Title': 'OneContract',
+          },
+          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 4096 }),
+        })
+        if (!res.ok) { console.warn(`[extract] OpenRouter ${model} error ${res.status}`); continue }
+        const json = await res.json()
+        const content: string = json.choices?.[0]?.message?.content ?? ''
+        if (content) { console.info(`[extract] OpenRouter ${model} success`); return content }
+      } catch (e) { console.warn(`[extract] OpenRouter ${model} threw:`, e) }
+    }
+  }
+
+  return null
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,11 +81,6 @@ export async function POST(request: NextRequest) {
   const { text } = body
   if (!text?.trim()) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })
-  }
-
-  const apiKey = readOpenrouterKey()
-  if (!apiKey) {
-    return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
   }
 
   const excerpt = text.slice(0, 8000)
@@ -98,51 +146,19 @@ export async function POST(request: NextRequest) {
 ТЕКСТ ДОГОВОРА:
 ${excerpt}`
 
-  const MODEL = 'google/gemma-3-27b-it:free'
-
-  let fields: TemplateField[] = []
-  let patches: DocxPatch[] = []
-  try {
-    const aiRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://onecontract.kz',
-        'X-Title': 'OneContract',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.1,
-        max_tokens: 4096,
-      }),
-    })
-
-    if (!aiRes.ok) {
-      console.warn(`[extract] ${MODEL} error ${aiRes.status}`)
-      return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
-    }
-
-    const aiJson = await aiRes.json()
-    const content: string = aiJson.choices?.[0]?.message?.content ?? ''
-    if (!content) {
-      console.warn(`[extract] ${MODEL} returned empty content`)
-      return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
-    }
-
-    const parsed = parseAIResponse(content)
-    if (parsed.fields.length > 0) {
-      fields = dedupeFields(parsed.fields)
-      patches = dedupePatches(validatePatches(parsed.patches, fields, excerpt))
-      console.info(`[extract] ${MODEL} → ${fields.length} fields, ${patches.length} patches`)
-    } else {
-      return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
-    }
-  } catch (e) {
-    console.warn(`[extract] ${MODEL} threw:`, e)
+  const content = await callAI(prompt)
+  if (!content) {
     return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
   }
+
+  const parsed = parseAIResponse(content)
+  if (parsed.fields.length === 0) {
+    return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
+  }
+
+  const fields = dedupeFields(parsed.fields)
+  const patches = dedupePatches(validatePatches(parsed.patches, fields, excerpt))
+  console.info(`[extract] → ${fields.length} fields, ${patches.length} patches`)
 
   return NextResponse.json({ fields, patches })
 }
