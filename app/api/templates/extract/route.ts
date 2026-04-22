@@ -31,7 +31,7 @@ async function callAI(messages: Message[]): Promise<string | null> {
 
   // Level 1: Groq (primary — fast and stable)
   if (groqKey) {
-    for (const model of ['llama-3.3-70b-versatile', 'gemma2-9b-it']) {
+    for (const model of ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'meta-llama/llama-4-scout-17b-16e-instruct']) {
       try {
         console.log(`[extract] Calling Groq model: ${model}`)
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -54,7 +54,7 @@ async function callAI(messages: Message[]): Promise<string | null> {
 
   // Level 2: OpenRouter (fallback)
   if (openrouterKey) {
-    for (const model of ['meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free', 'google/gemma-3-12b-it:free']) {
+    for (const model of ['deepseek/deepseek-chat:free', 'qwen/qwen-2.5-72b-instruct:free', 'meta-llama/llama-3.3-70b-instruct:free', 'google/gemma-3-27b-it:free']) {
       try {
         console.log(`[extract] Calling OpenRouter model: ${model}`)
         const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No text provided' }, { status: 400 })
   }
 
-  const excerpt = text.slice(0, 8000)
+  const excerpt = text.slice(0, 6000)
 
   const messages = [
     { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
