@@ -24,6 +24,7 @@ interface EditorStepProps {
   saving: boolean
   error: string | null
   aiUnavailable?: boolean
+  aiParseFailed?: boolean
   activeFieldId?: string | null
   onFieldSelect?: (id: string | null) => void
   onFieldAddWithPatch?: (field: EditableField, patch: DocxPatch) => void

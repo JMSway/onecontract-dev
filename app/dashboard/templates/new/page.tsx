@@ -39,6 +39,7 @@ export default function NewTemplatePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [aiUnavailable, setAiUnavailable] = useState(false)
+  const [aiParseFailed, setAiParseFailed] = useState(false)
 
   const handleReady = (r: UploadResult) => {
     setFile(r.file)
@@ -51,6 +52,7 @@ export default function NewTemplatePage() {
     setDescription('')
     setError(null)
     setAiUnavailable(r.aiUnavailable ?? false)
+    setAiParseFailed(r.aiParseFailed ?? false)
     setStep('edit')
   }
 
@@ -167,6 +169,7 @@ export default function NewTemplatePage() {
             saving={saving}
             error={error}
             aiUnavailable={aiUnavailable}
+            aiParseFailed={aiParseFailed}
             activeFieldId={activeFieldId}
             onFieldSelect={setActiveFieldId}
             onFieldAddWithPatch={addFieldWithPatch}

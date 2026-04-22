@@ -18,6 +18,7 @@ export interface UploadResult {
   patches: DocxPatch[]
   baseName: string
   aiUnavailable?: boolean
+  aiParseFailed?: boolean
 }
 
 interface UploadStepProps {
@@ -124,6 +125,8 @@ export function UploadStep({ onReady }: UploadStepProps) {
           fields?: TemplateField[]
           patches?: DocxPatch[]
           error?: string
+          aiUnavailable?: boolean
+          aiParseFailed?: boolean
         }
         if (!res.ok) throw new Error(json.error ?? 'Ошибка AI-анализа')
 
@@ -136,8 +139,12 @@ export function UploadStep({ onReady }: UploadStepProps) {
 
         const baseName = file.name.replace(/\.(docx|pdf)$/i, '')
 
-        const aiUnavailable = (json as { aiUnavailable?: boolean }).aiUnavailable ?? false
-        onReady({ file, fileUrl, fileStoragePath, fileKind, fields: editable, patches, baseName, aiUnavailable })
+        onReady({
+          file, fileUrl, fileStoragePath, fileKind,
+          fields: editable, patches, baseName,
+          aiUnavailable: json.aiUnavailable ?? false,
+          aiParseFailed: json.aiParseFailed ?? false,
+        })
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : 'Ошибка при обработке файла')
         setLoading(false)

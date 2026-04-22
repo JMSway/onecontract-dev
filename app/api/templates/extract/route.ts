@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
 
   const parsed = parseAIResponse(content)
   if (parsed.fields.length === 0) {
-    return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
+    console.log('[extract] AI content preview:', content.slice(0, 500))
+    return NextResponse.json({ fields: [], patches: [], aiParseFailed: true }, { status: 200 })
   }
 
   const fields = dedupeFields(parsed.fields)

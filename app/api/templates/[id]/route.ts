@@ -1,7 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { invalidateTemplatesCache } from '@/lib/db'
 import type { TemplateField } from '@/lib/types'
+
+/**
+ * `source_file_url` is stored as a Supabase signed URL with 1-hour TTL
+ * (see UploadStep → POST /api/templates). By the time the owner opens the
+ * edit page, the URL has usually expired and the preview iframe breaks
+ * silently. Re-sign on read so the edit page always gets a working URL.
+ */
+async function refreshSourceFileUrl(stored: string | null | undefined): Promise<string | null> {
+  if (!stored) return null
+  const parts = stored.split('/templates/')
+  if (parts.length < 2) return stored
+  const rawPath = parts[parts.length - 1].split('?')[0]
+  if (!rawPath) return stored
+  let path: string
+  try {
+    path = decodeURIComponent(rawPath)
+  } catch {
+    return stored
+  }
+  try {
+    const serviceSupabase = createServiceClient()
+    const { data: fresh } = await serviceSupabase.storage
+      .from('templates')
+      .createSignedUrl(path, 60 * 60)
+    return fresh?.signedUrl ?? stored
+  } catch {
+    return stored
+  }
+}
 
 async function getProfile(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
@@ -45,8 +75,10 @@ export async function GET(
 
   if (!templateRes.data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+  const freshUrl = await refreshSourceFileUrl(templateRes.data.source_file_url as string | null)
+
   return NextResponse.json({
-    template: templateRes.data,
+    template: { ...templateRes.data, source_file_url: freshUrl },
     contractCount: countRes.count ?? 0,
   })
 }
