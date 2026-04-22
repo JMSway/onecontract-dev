@@ -1,9 +1,11 @@
 'use client'
 
+import { useMemo } from 'react'
 import { FieldsEditor } from './FieldsEditor'
 import { DocumentPreview } from './DocumentPreview'
 import { FieldMappingPanel } from './FieldMappingPanel'
 import type { EditableField } from './FieldRow'
+import type { DocxPatch } from '@/lib/types'
 
 interface EditorStepProps {
   file: File | null
@@ -14,6 +16,7 @@ interface EditorStepProps {
   description: string
   onDescriptionChange: (v: string) => void
   fields: EditableField[]
+  patches?: DocxPatch[]
   onFieldChange: (id: string, patch: Partial<EditableField>) => void
   onFieldRemove: (id: string) => void
   onFieldAdd: () => void
@@ -25,7 +28,15 @@ interface EditorStepProps {
 }
 
 export function EditorStep(props: EditorStepProps) {
-  const { file, fileUrl, fileKind, fields, ...editorProps } = props
+  const { file, fileUrl, fileKind, fields, patches, ...editorProps } = props
+
+  const fieldGroups = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const f of fields) {
+      map[f.key] = f.group ?? 'other'
+    }
+    return map
+  }, [fields])
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-5 lg:gap-6">
@@ -38,8 +49,9 @@ export function EditorStep(props: EditorStepProps) {
           fileUrl={fileUrl}
           fileKind={fileKind}
           highlightKeys={fields.map((f) => f.key).filter((k) => k.length > 0)}
+          fieldGroups={fieldGroups}
         />
-        <FieldMappingPanel fields={fields} />
+        <FieldMappingPanel fields={fields} patches={patches} />
       </div>
     </div>
   )

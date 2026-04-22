@@ -138,6 +138,7 @@ export default function NewTemplatePage() {
             description={description}
             onDescriptionChange={setDescription}
             fields={fields}
+            patches={patches}
             onFieldChange={updateField}
             onFieldRemove={removeField}
             onFieldAdd={addField}

@@ -2,16 +2,21 @@
 
 import { User, Briefcase, Info } from 'lucide-react'
 import type { EditableField } from './FieldRow'
+import type { DocxPatch } from '@/lib/types'
 
 interface FieldMappingPanelProps {
   fields: EditableField[]
+  patches?: DocxPatch[]
 }
 
-export function FieldMappingPanel({ fields }: FieldMappingPanelProps) {
+export function FieldMappingPanel({ fields, patches }: FieldMappingPanelProps) {
   if (!fields.length) return null
 
   const managerFields = fields.filter((f) => (f.filled_by ?? 'manager') === 'manager')
   const clientFields = fields.filter((f) => f.filled_by === 'client')
+
+  const patchCount = (key: string) =>
+    (patches ?? []).filter((p) => p.replace.includes(`{{${key}}}`)).length
 
   return (
     <div className="bg-white border border-[#D6E6F3] rounded-2xl p-4 shadow-sm mt-4 space-y-3">
@@ -24,15 +29,25 @@ export function FieldMappingPanel({ fields }: FieldMappingPanelProps) {
             </span>
           </div>
           <div className="space-y-1">
-            {managerFields.map((f) => (
-              <div
-                key={f._id}
-                className="flex items-center justify-between text-xs px-2 py-1.5 bg-[#F8FAFC] rounded-lg"
-              >
-                <span className="text-[#0D1B2A] truncate">{f.label || f.key}</span>
-                <span className="text-[#A6C5D7] text-[10px] shrink-0 ml-2">{f.type}</span>
-              </div>
-            ))}
+            {managerFields.map((f) => {
+              const count = patchCount(f.key)
+              return (
+                <div
+                  key={f._id}
+                  className="flex items-center justify-between text-xs px-2 py-1.5 bg-[#F8FAFC] rounded-lg"
+                >
+                  <span className="text-[#0D1B2A] truncate">{f.label || f.key}</span>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {count > 1 && (
+                      <span className="text-[9px] bg-[#EDE9FE] text-[#7C3AED] rounded px-1 py-0.5">
+                        ×{count}
+                      </span>
+                    )}
+                    <span className="text-[#A6C5D7] text-[10px]">{f.type}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -46,15 +61,25 @@ export function FieldMappingPanel({ fields }: FieldMappingPanelProps) {
             </span>
           </div>
           <div className="space-y-1">
-            {clientFields.map((f) => (
-              <div
-                key={f._id}
-                className="flex items-center justify-between text-xs px-2 py-1.5 bg-[#F0FDF4] rounded-lg"
-              >
-                <span className="text-[#0D1B2A] truncate">{f.label || f.key}</span>
-                <span className="text-[#A6C5D7] text-[10px] shrink-0 ml-2">{f.type}</span>
-              </div>
-            ))}
+            {clientFields.map((f) => {
+              const count = patchCount(f.key)
+              return (
+                <div
+                  key={f._id}
+                  className="flex items-center justify-between text-xs px-2 py-1.5 bg-[#F0FDF4] rounded-lg"
+                >
+                  <span className="text-[#0D1B2A] truncate">{f.label || f.key}</span>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {count > 1 && (
+                      <span className="text-[9px] bg-[#EDE9FE] text-[#7C3AED] rounded px-1 py-0.5">
+                        ×{count}
+                      </span>
+                    )}
+                    <span className="text-[#A6C5D7] text-[10px]">{f.type}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
@@ -62,11 +87,7 @@ export function FieldMappingPanel({ fields }: FieldMappingPanelProps) {
       <div className="flex items-start gap-1.5 pt-2 border-t border-[#D6E6F3]">
         <Info size={12} strokeWidth={1.5} className="text-[#A6C5D7] mt-0.5 shrink-0" />
         <p className="text-[10px] text-[#6B7E92] leading-relaxed">
-          Данные вставятся в подчёркнутые места оригинального договора. Жёлтые метки{' '}
-          <span style={{ background: '#FEF3C7', padding: '0 3px', borderRadius: 2, fontSize: '0.9em' }}>
-            {'{{key}}'}
-          </span>{' '}
-          в превью показывают куда.
+          Цветные метки в превью показывают куда вставляется каждое поле. ×N — поле встречается N раз в документе.
         </p>
       </div>
     </div>

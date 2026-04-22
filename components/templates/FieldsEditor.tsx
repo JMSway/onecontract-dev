@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Plus, AlertCircle, Loader2, HelpCircle, X } from 'lucide-react'
 import { FieldRow, type EditableField } from './FieldRow'
+import { GROUP_CONFIG, GROUP_ORDER } from '@/lib/field-groups'
 
 interface FieldsEditorProps {
   templateName: string
@@ -18,6 +19,18 @@ interface FieldsEditorProps {
   saving: boolean
   error: string | null
   aiUnavailable?: boolean
+}
+
+function groupFields(fields: EditableField[]): { group: string; fields: EditableField[] }[] {
+  const grouped: Record<string, EditableField[]> = {}
+  for (const f of fields) {
+    const g = f.group ?? 'other'
+    if (!grouped[g]) grouped[g] = []
+    grouped[g].push(f)
+  }
+  return GROUP_ORDER
+    .filter((g) => grouped[g]?.length)
+    .map((g) => ({ group: g, fields: grouped[g] }))
 }
 
 export function FieldsEditor({
@@ -36,6 +49,9 @@ export function FieldsEditor({
   aiUnavailable,
 }: FieldsEditorProps) {
   const [showHelp, setShowHelp] = useState(false)
+
+  const grouped = groupFields(fields)
+  const hasGroups = grouped.some((g) => g.group !== 'other') && grouped.length > 1
 
   return (
     <div className="bg-white border border-[#D6E6F3] rounded-2xl p-5 sm:p-6 shadow-sm space-y-5">
@@ -105,23 +121,50 @@ export function FieldsEditor({
               <span className="w-2 h-2 rounded-full bg-[#0F7B55] mt-0.5 shrink-0 inline-block" />
               <span><span className="font-medium">Клиент</span> — заполняет при подписании: ИИН, адрес проживания, номер документа.</span>
             </p>
-            <p className="flex items-start gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#0F7B55] mt-0.5 shrink-0 inline-block" />
-              <span><span className="font-medium">Авто</span> — система подставит значение автоматически при отправке (текущая дата, номер договора).</span>
-            </p>
             <p className="text-[#6B7E92] mt-1">Нажмите на иконку <span className="font-mono">👜/👤</span> рядом с полем чтобы переключить.</p>
           </div>
         )}
 
-        <div className="space-y-2">
-          {fields.map((field) => (
-            <FieldRow
-              key={field._id}
-              field={field}
-              onChange={(patch) => onFieldChange(field._id, patch)}
-              onRemove={() => onFieldRemove(field._id)}
-            />
-          ))}
+        <div className="space-y-1">
+          {hasGroups
+            ? grouped.map(({ group, fields: groupedFields }) => {
+                const cfg = GROUP_CONFIG[group] ?? GROUP_CONFIG.other
+                return (
+                  <div key={group} className="mb-4">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <span
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: cfg.color }}
+                      />
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-widest"
+                        style={{ color: cfg.color }}
+                      >
+                        {cfg.label}
+                      </span>
+                      <span className="text-[10px] text-[#A6C5D7]">({groupedFields.length})</span>
+                    </div>
+                    <div className="space-y-2">
+                      {groupedFields.map((field) => (
+                        <FieldRow
+                          key={field._id}
+                          field={field}
+                          onChange={(patch) => onFieldChange(field._id, patch)}
+                          onRemove={() => onFieldRemove(field._id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })
+            : fields.map((field) => (
+                <FieldRow
+                  key={field._id}
+                  field={field}
+                  onChange={(patch) => onFieldChange(field._id, patch)}
+                  onRemove={() => onFieldRemove(field._id)}
+                />
+              ))}
         </div>
         <button
           type="button"

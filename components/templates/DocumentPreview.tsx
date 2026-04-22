@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { Expand, X, FileText, ZoomIn, ZoomOut } from 'lucide-react'
 import { BoxLoader } from '@/components/ui/BoxLoader'
 import { Document, Page, pdfjs } from 'react-pdf'
+import { GROUP_HIGHLIGHT_COLORS } from '@/lib/field-groups'
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`
 
@@ -12,6 +13,7 @@ interface DocumentPreviewProps {
   fileUrl: string | null
   fileKind: 'pdf' | 'docx' | null
   highlightKeys?: string[]
+  fieldGroups?: Record<string, string>
 }
 
 const PDF_OPTIONS = {
@@ -20,7 +22,7 @@ const PDF_OPTIONS = {
   standardFontDataUrl: `https://unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
 }
 
-export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys }: DocumentPreviewProps) {
+export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys, fieldGroups }: DocumentPreviewProps) {
   const [docxHtml, setDocxHtml] = useState<string>('')
   const [docxLoading, setDocxLoading] = useState(false)
   const [docxError, setDocxError] = useState<string | null>(null)
@@ -65,11 +67,13 @@ export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys }: Docu
 
         if (highlightKeys?.length) {
           for (const key of highlightKeys) {
+            const group = fieldGroups?.[key] ?? 'other'
+            const colors = GROUP_HIGHLIGHT_COLORS[group] ?? GROUP_HIGHLIGHT_COLORS.other
             const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
             const re = new RegExp(`\\{\\{\\s*${escaped}\\s*\\}\\}`, 'g')
             html = html.replace(
               re,
-              `<mark data-field-key="${key}" style="background:#FEF3C7;border:1px solid #F59E0B;border-radius:3px;padding:1px 4px;font-size:0.9em;cursor:pointer">{{${key}}}</mark>`
+              `<mark data-field-key="${key}" style="background:${colors.bg};border:1px solid ${colors.border};border-radius:3px;padding:1px 4px;font-size:0.9em;cursor:pointer" title="${key}">{{${key}}}</mark>`
             )
           }
         }
@@ -93,7 +97,7 @@ export function DocumentPreview({ file, fileUrl, fileKind, highlightKeys }: Docu
       cancelled = true
       abortController?.abort()
     }
-  }, [file, fileUrl, fileKind, highlightKeys?.join('|')])
+  }, [file, fileUrl, fileKind, highlightKeys?.join('|'), fieldGroups && JSON.stringify(fieldGroups)])
 
   useEffect(() => {
     if (!expanded) return

@@ -2,6 +2,7 @@
 
 import { ChevronDown, Calendar, Trash2, User, Briefcase } from 'lucide-react'
 import type { TemplateField } from '@/lib/types'
+import { GROUP_CONFIG } from '@/lib/field-groups'
 
 export interface EditableField extends TemplateField {
   _id: string
@@ -24,9 +25,15 @@ interface FieldRowProps {
 
 export function FieldRow({ field, onChange, onRemove }: FieldRowProps) {
   const isClient = field.filled_by === 'client'
+  const groupColor = GROUP_CONFIG[field.group ?? 'other']?.color ?? '#6B7280'
 
   return (
     <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 group transition-all duration-150 hover:bg-[#D6E6F3]/30">
+      <span
+        className="w-2 h-2 rounded-full shrink-0 mt-0.5"
+        style={{ backgroundColor: groupColor }}
+        title={GROUP_CONFIG[field.group ?? 'other']?.label ?? 'Прочее'}
+      />
       <div className="flex-1 min-w-0">
         <input
           type="text"

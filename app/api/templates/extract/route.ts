@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { createClient } from '@/lib/supabase/server'
 import type { TemplateField, DocxPatch } from '@/lib/types'
+import { EXTRACT_SYSTEM_PROMPT, buildUserPrompt } from '@/lib/ai-extract-prompt'
 
 function readOpenrouterKey(): string | undefined {
   try {
@@ -21,7 +22,9 @@ function readGroqKey(): string | undefined {
   return process.env.GROQ_API_KEY
 }
 
-async function callAI(prompt: string): Promise<string | null> {
+type Message = { role: string; content: string }
+
+async function callAI(messages: Message[]): Promise<string | null> {
   // Level 1: Groq (primary — fast and stable)
   const groqKey = readGroqKey()
   if (groqKey) {
@@ -30,7 +33,7 @@ async function callAI(prompt: string): Promise<string | null> {
         const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
           method: 'POST',
           headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 4096 }),
+          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096 }),
         })
         if (!res.ok) { console.warn(`[extract] Groq ${model} error ${res.status}`); continue }
         const json = await res.json()
@@ -53,7 +56,7 @@ async function callAI(prompt: string): Promise<string | null> {
             'HTTP-Referer': 'https://onecontract.kz',
             'X-Title': 'OneContract',
           },
-          body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, max_tokens: 4096 }),
+          body: JSON.stringify({ model, messages, temperature: 0.1, max_tokens: 4096 }),
         })
         if (!res.ok) { console.warn(`[extract] OpenRouter ${model} error ${res.status}`); continue }
         const json = await res.json()
@@ -85,68 +88,12 @@ export async function POST(request: NextRequest) {
 
   const excerpt = text.slice(0, 8000)
 
-  const prompt = `Ты обрабатываешь шаблон договора казахстанской школы/образовательного центра.
-
-ЗАДАЧА: найти все места, где вставляются данные клиента/условия, и вернуть:
-(1) fields — список полей для формы
-(2) patches — список замен для docx-шаблона: уникальные подстроки в документе, которые нужно заменить на {{placeholder}}
-
-СТРОГИЕ ОГРАНИЧЕНИЯ:
-- Максимум 12 полей в fields. Если нашёл больше — оставь только САМЫЕ важные.
-- НЕ добавляй поля из Приложений (Прейскурант, Акт и т.д.) если они повторяют поля из основного договора
-- НЕ создавай отдельные поля для одного и того же: «ФИО Заказчика» и «Имя Заказчика» — это ОДНО поле
-- НЕ создавай поле если в документе нет явного места для вставки (подчёркивания, скобок, двоеточий)
-- Для БИН/ИИН/банковских реквизитов исполнителя — НЕ создавай поля, они уже есть в шаблоне
-- Приоритизируй поля из контекста «Заказчик», «Обучающийся», «Клиент»
-- НЕ создавай поля для служебных строк: «Директор», «М.П.», «БИК», «ИИК»
-
-КАК НАХОДИТЬ ПОЛЯ:
-- Явные маркеры: «___», «____», «[___]», «(____)», «{поле}», «____________»
-- Метки с двоеточием: «ФИО:», «ИИН:», «Сумма:»
-- Скобочки: «[ФИО Заказчика]», «(наименование)»
-
-ПРАВИЛА fields:
-- key: английский snake_case (student_name, parent_iin, payment_amount, contract_number)
-- label: русский, как в документе
-- type: "date" | "number" | "phone" | "iin" | "email" | "text"
-- required: true если поле обязательно
-
-ПРАВИЛА patches (КРИТИЧНО):
-- search: УНИКАЛЬНАЯ подстрока в тексте документа, достаточно длинная чтобы встречаться только один раз
-  * Включай контекст: «ФИО Заказчика: __________» а не просто «__________»
-  * Сохраняй точное количество подчёркиваний/пробелов из оригинала
-  * Не меняй кавычки или спецсимволы
-- replace: та же строка с заменой места под данные на {{key}}, где key совпадает с fields[].key
-  * Пример: search: «ФИО: __________», replace: «ФИО: {{student_name}}»
-  * ОДНА подстановка на patch — не объединяй несколько полей в один patch
-- Если поле нельзя надёжно локализовать (например в шаблоне нет уникального маркера) — добавь поле в fields, но НЕ добавляй в patches
-
-ПРИМЕР ПРАВИЛЬНОГО АНАЛИЗА:
-Текст: «г.Астана __.__ 2024 года. ФИО Заказчика: _____, ИИН: _____»
-Правильный ответ:
-{
-  "fields": [
-    {"key": "contract_date", "label": "Дата договора", "type": "date", "required": true},
-    {"key": "customer_name", "label": "ФИО Заказчика", "type": "text", "required": true},
-    {"key": "customer_iin", "label": "ИИН Заказчика", "type": "iin", "required": true}
-  ],
-  "patches": [
-    {"search": "г.Астана __.__", "replace": "г.Астана {{contract_date}}"},
-    {"search": "ФИО Заказчика: _____", "replace": "ФИО Заказчика: {{customer_name}}"},
-    {"search": "ИИН: _____", "replace": "ИИН: {{customer_iin}}"}
+  const messages = [
+    { role: 'system', content: EXTRACT_SYSTEM_PROMPT },
+    { role: 'user', content: buildUserPrompt(excerpt) },
   ]
-}
 
-Верни ТОЛЬКО JSON, БЕЗ markdown-обёртки, БЕЗ пояснений:
-{
-  "fields": [{"key": "...", "label": "...", "type": "...", "required": true}],
-  "patches": [{"search": "...", "replace": "..."}]
-}
-
-ТЕКСТ ДОГОВОРА:
-${excerpt}`
-
-  const content = await callAI(prompt)
+  const content = await callAI(messages)
   if (!content) {
     return NextResponse.json({ fields: [], patches: [], aiUnavailable: true }, { status: 200 })
   }
@@ -224,16 +171,24 @@ function normalizeFields(raw: unknown): TemplateField[] {
     .filter((f): f is Record<string, unknown> => typeof f === 'object' && f !== null)
     .map((f) => {
       const key = String(f.key ?? '').replace(/[^a-z0-9_]/gi, '_').toLowerCase()
+      const aiFilledBy = f.filled_by === 'manager' || f.filled_by === 'client'
+        ? (f.filled_by as 'manager' | 'client')
+        : undefined
       return {
         key,
         label: String(f.label ?? f.key ?? ''),
         type: validateFieldType(f.type),
         required: Boolean(f.required ?? true),
-        filled_by: autoFilledBy(key),
+        filled_by: aiFilledBy ?? autoFilledBy(key),
+        group: validateGroup(f.group),
       }
     })
     .filter((f) => f.key.length > 0)
-    .slice(0, 12)
+}
+
+function validateGroup(g: unknown): TemplateField['group'] {
+  const valid: NonNullable<TemplateField['group']>[] = ['customer', 'student', 'contract', 'payment', 'other']
+  return valid.includes(g as NonNullable<TemplateField['group']>) ? (g as NonNullable<TemplateField['group']>) : 'other'
 }
 
 function levenshtein(a: string, b: string): number {
